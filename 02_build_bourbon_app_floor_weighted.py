@@ -1,4 +1,8 @@
 # Databricks notebook source
+# /// script
+# [tool.databricks.environment]
+# environment_version = "5"
+# ///
 # MAGIC %md
 # MAGIC # 05 · Build weighted `app.bourbons` floor (wide, weight-driven)
 # MAGIC
