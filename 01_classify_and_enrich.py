@@ -107,11 +107,15 @@ catalog = catalog.where(F.col("placeable"))
 
 # MAGIC %md
 # MAGIC ## 3. Enrich: rarity + one-sentence description (Llama 4 Maverick)
-# MAGIC For each distinct bottle we ask Llama 4 Maverick for a collectibility `rarity`
-# MAGIC (`common`/`rare`/`legendary`) and a single vivid sentence. **Structured output** pins the
+# MAGIC For each distinct bottle **missing** `rarity`, `description`, or `distillery`
+# MAGIC we ask Llama 4 Maverick to fill them in. **Structured output** pins the
 # MAGIC response to a JSON schema, so rarity is always one of the three enum values — no parsing
 # MAGIC guesswork. This rarity is the LLM's judgment of real-world scarcity; it is independent of
 # MAGIC the tier/band math (which stays purely retail-value driven).
+# MAGIC
+# MAGIC Bottles already fully populated by `mock_data_generator/` (rarity + description +
+# MAGIC distillery all set) are skipped entirely — no LLM call, no overwrite. This step
+# MAGIC exists for inventory that arrives without that generator-side enrichment.
 # MAGIC
 # MAGIC Auth is automatic inside Databricks via the MLflow deployments client — no token to manage.
 
@@ -183,26 +187,37 @@ def enrich(name, distillery, retail_value):
 
 import pandas as pd
 
-rows = (catalog.select("name", "distillery", "retail_value").distinct()
+rows = (catalog.select("name", "distillery", "retail_value", "rarity", "description").distinct()
         .toPandas().to_dict("records"))
 
+def _populated(r):
+    return bool(r.get("rarity")) and bool(r.get("description")) and bool(r.get("distillery"))
+
 results = []
+skipped = 0
 for r in rows:
+    if _populated(r):
+        skipped += 1
+        continue  # already has rarity/description/distillery from bronze — no LLM call, no overwrite
     if DO_ENRICH:
         rarity, desc, distillery = enrich(r["name"], r.get("distillery"), r["retail_value"])
     else:
-        rarity, desc, distillery = _price_rarity(r["retail_value"]), None, None
+        rarity, desc, distillery = r.get("rarity") or _price_rarity(r["retail_value"]), r.get("description"), r.get("distillery")
     results.append({"name": r["name"], "llm_rarity": rarity, "llm_description": desc, "llm_distillery": distillery})
     print(f"[{rarity:9}] {r['name']}: {desc}")
 
-enrich_df = spark.createDataFrame(pd.DataFrame(results))
+print(f"enriched {len(results)} of {len(rows)} distinct bottles ({skipped} already complete, skipped)")
 
-# Overlay LLM values; keep any incoming rarity/description only where the LLM returned nothing.
-catalog = catalog.join(enrich_df, on="name", how="left")\
-    .withColumn("rarity", F.col("llm_rarity"))\
-    .withColumn("description", F.col("llm_description"))\
-    .withColumn("distillery", F.col("llm_distillery"))\
-    .drop("llm_rarity", "llm_description", "llm_distillery")
+enrich_df = spark.createDataFrame(pd.DataFrame(results)) if results else None
+
+# Overlay LLM values only where they exist; coalesce keeps the original bronze value for
+# every row that was skipped above (enrich_df has no match for it, so llm_* is null).
+if enrich_df is not None:
+    catalog = catalog.join(enrich_df, on="name", how="left")\
+        .withColumn("rarity", F.coalesce(F.col("llm_rarity"), F.col("rarity")))\
+        .withColumn("description", F.coalesce(F.col("llm_description"), F.col("description")))\
+        .withColumn("distillery", F.coalesce(F.col("llm_distillery"), F.col("distillery")))\
+        .drop("llm_rarity", "llm_description", "llm_distillery")
 
 # COMMAND ----------
 
