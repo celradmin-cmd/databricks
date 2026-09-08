@@ -2,8 +2,11 @@
 # MAGIC %md
 # MAGIC # 01 · Classify + Enrich
 # MAGIC
-# MAGIC **Input:** the source-system inventory (`silver.source_inventory`). **Output:** a curated
-# MAGIC `bourbon_catalog` Gold table where every bottle has (a) its eligible tier(s) and band, and
+# MAGIC **Input:** the bronze inventory tables written by `mock_data_generator/` —
+# MAGIC `bronze.bourbon_inventory` and `bronze.agave_inventory` — each already shaped as
+# MAGIC `bottle_serial, name, category, description, rarity, retail_value, distillery`.
+# MAGIC **Output:** curated `bourbon_catalog` / `agave_catalog` Gold tables where every
+# MAGIC bottle has (a) its eligible tier(s) and band, and
 # MAGIC (b) an LLM-generated **rarity** (`common` / `rare` / `legendary`) and **one-sentence
 # MAGIC description**, produced by **Llama 4 Maverick** via Databricks Foundation Model APIs.
 # MAGIC
@@ -30,7 +33,8 @@ dbutils.widgets.dropdown("enrich", "true", ["true", "false"], "Run LLM enrichmen
 
 ENV         = dbutils.widgets.get("environment")
 CATALOG     = f"{ENV}_celr"                       # Unity Catalog: celr_prod / celr_dev
-SRC_TABLE   = f"{CATALOG}.bronze.inventory"
+BOURBON_SRC_TABLE = f"{CATALOG}.bronze.bourbon_inventory"
+AGAVE_SRC_TABLE   = f"{CATALOG}.bronze.agave_inventory"
 BOURBON_CATALOG_TBL = f"{CATALOG}.gold.bourbon_catalog"
 AGAVE_CATALOG_TBL = f"{CATALOG}.gold.agave_catalog"
 BOURBON_ODDS_VIEW   = f"{CATALOG}.gold.bourbon_tier_odds_breakdown"
@@ -44,16 +48,18 @@ DO_ENRICH    = dbutils.widgets.get("enrich") == "true"
 
 # MAGIC %md
 # MAGIC ## 1. Read source inventory
-# MAGIC Expected columns: `source_sku, name, distillery, description, rarity, retail_value, quantity`.
-# MAGIC (`rarity`/`description` may be null coming in — enrichment fills them.)
+# MAGIC Both bronze tables already carry `bottle_serial, name, category, description,
+# MAGIC rarity, retail_value, distillery` as-is (the mock generators populate rarity/
+# MAGIC description/distillery via LLM at generation time — no column renaming or price
+# MAGIC coalescing needed here, unlike the old single-table `bronze.inventory` source).
+# MAGIC Union both spirits so the classify + enrich steps below run once over both;
+# MAGIC the category-based split back into separate Gold tables happens in step 4.
 
 # COMMAND ----------
 
 from pyspark.sql import functions as F
 
-src = (spark.table(SRC_TABLE)
-       .withColumn("name", F.trim("product_name"))\
-       .withColumn('retail_value', F.coalesce(F.col('avg_price'), F.col('median_price'))))
+src = (spark.table(BOURBON_SRC_TABLE).unionByName(spark.table(AGAVE_SRC_TABLE)))
 
 # COMMAND ----------
 
@@ -177,13 +183,13 @@ def enrich(name, distillery, retail_value):
 
 import pandas as pd
 
-rows = (catalog.select("name", "category", "retail_value").distinct()
+rows = (catalog.select("name", "distillery", "retail_value").distinct()
         .toPandas().to_dict("records"))
 
 results = []
 for r in rows:
     if DO_ENRICH:
-        rarity, desc, distillery = enrich(r["name"], r.get("category"), r["retail_value"])
+        rarity, desc, distillery = enrich(r["name"], r.get("distillery"), r["retail_value"])
     else:
         rarity, desc, distillery = _price_rarity(r["retail_value"]), None, None
     results.append({"name": r["name"], "llm_rarity": rarity, "llm_description": desc, "llm_distillery": distillery})
