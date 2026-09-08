@@ -143,7 +143,7 @@ print(f"\nremaining cell-coverage to fill: {total} (across a {TOTAL_BOTTLES}-bot
 
 # COMMAND ----------
 
-import json, uuid, random
+import json, uuid, random, re
 from mlflow.deployments import get_deploy_client
 
 client = get_deploy_client("databricks")
@@ -161,7 +161,9 @@ def text_prompt(n, lo_d, hi_d):
     return (f"List {n} American whiskey bottles. {rule} "
             "Return ONLY a JSON array, no prose, no markdown. Each element: "
             '{"name": string, "distillery": string, '
-            '"description": one sentence under 30 words, tasting-note tone}.'
+            '"description": one sentence under 30 words, tasting-note tone}. '
+            "Inside string values use plain ASCII only: no double quotes, no "
+            "apostrophes that would break JSON, no newlines."
             '"distillery": What distillery is this bottle from? If unknown, say so')
 
 def call_llm_text(n, lo_d, hi_d):
@@ -170,12 +172,36 @@ def call_llm_text(n, lo_d, hi_d):
             {"role": "system", "content": "You output strictly valid JSON and nothing else."},
             {"role": "user", "content": text_prompt(n, lo_d, hi_d)},
         ],
-        "temperature": 0.9, "max_tokens": 2000,
+        "temperature": 0.9, "max_tokens": 4000,
     })
-    text = resp["choices"][0]["message"]["content"].strip()
+    text = resp["choices"][0]["message"]["content"]
+    return parse_bottles(text)
+
+def parse_bottles(text):
+    """Tolerant parse: try the whole array, else salvage object-by-object so one
+    malformed or truncated element doesn't discard the batch. Returns list[dict]."""
+    text = text.strip()
     if text.startswith("```"):
         text = text.strip("`")
-    return json.loads(text[text.find("["): text.rfind("]") + 1])
+        if text[:4].lower() == "json":
+            text = text[4:]
+    s, e = text.find("["), text.rfind("]")
+    if s != -1 and e > s:
+        try:
+            data = json.loads(text[s:e + 1])
+            if isinstance(data, list):
+                return [d for d in data if isinstance(d, dict)]
+        except json.JSONDecodeError:
+            pass
+    out = []
+    for m in re.finditer(r"\{[^{}]*\}", text):   # objects are flat
+        try:
+            o = json.loads(m.group(0))
+            if isinstance(o, dict):
+                out.append(o)
+        except json.JSONDecodeError:
+            continue
+    return out
 
 def clean_desc(d):
     d = " ".join(str(d).split())
