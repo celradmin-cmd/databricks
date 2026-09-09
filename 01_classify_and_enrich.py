@@ -187,8 +187,8 @@ def enrich(name, distillery, retail_value):
 
 import pandas as pd
 
-rows = (catalog.select("name", "distillery", "retail_value", "rarity", "description").distinct()
-        .toPandas().to_dict("records"))
+rows = (catalog.select("bottle_serial", "name", "distillery", "retail_value", "rarity", "description")
+        .distinct().toPandas().to_dict("records"))
 
 def _populated(r):
     return bool(r.get("rarity")) and bool(r.get("description")) and bool(r.get("distillery"))
@@ -203,7 +203,8 @@ for r in rows:
         rarity, desc, distillery = enrich(r["name"], r.get("distillery"), r["retail_value"])
     else:
         rarity, desc, distillery = r.get("rarity") or _price_rarity(r["retail_value"]), r.get("description"), r.get("distillery")
-    results.append({"name": r["name"], "llm_rarity": rarity, "llm_description": desc, "llm_distillery": distillery})
+    results.append({"bottle_serial": r["bottle_serial"], "llm_rarity": rarity,
+                     "llm_description": desc, "llm_distillery": distillery})
     print(f"[{rarity:9}] {r['name']}: {desc}")
 
 print(f"enriched {len(results)} of {len(rows)} distinct bottles ({skipped} already complete, skipped)")
@@ -212,8 +213,12 @@ enrich_df = spark.createDataFrame(pd.DataFrame(results)) if results else None
 
 # Overlay LLM values only where they exist; coalesce keeps the original bronze value for
 # every row that was skipped above (enrich_df has no match for it, so llm_* is null).
+# Joined on bottle_serial (unique per physical bottle) — NOT name, since the generator
+# allows repeated names across different price points ("real_commodity" mode), and a
+# name-keyed join fans a bottle out against every other bottle sharing its name,
+# bleeding one bottle's description/rarity into an unrelated one.
 if enrich_df is not None:
-    catalog = catalog.join(enrich_df, on="name", how="left")\
+    catalog = catalog.join(enrich_df, on="bottle_serial", how="left")\
         .withColumn("rarity", F.coalesce(F.col("llm_rarity"), F.col("rarity")))\
         .withColumn("description", F.coalesce(F.col("llm_description"), F.col("description")))\
         .withColumn("distillery", F.coalesce(F.col("llm_distillery"), F.col("distillery")))\
