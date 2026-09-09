@@ -29,7 +29,7 @@
 
 # COMMAND ----------
 
-# MAGIC %run ./00_celr_odds_config
+# MAGIC %run ../00_celr_odds_config
 
 # COMMAND ----------
 

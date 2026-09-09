@@ -29,7 +29,7 @@
 
 # COMMAND ----------
 
-# MAGIC %run ./00_celr_odds_config
+# MAGIC %run ../00_celr_odds_config
 
 # COMMAND ----------
 
@@ -369,3 +369,6 @@ else:
 
 # MAGIC %sql
 # MAGIC select * from prod_celr.bronze.agave_inventory
+
+# COMMAND ----------
+

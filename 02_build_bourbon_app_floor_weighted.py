@@ -62,7 +62,7 @@ from pyspark.sql.types import IntegerType
 SOURCE_TABLE = "prod_celr.gold.bourbon_catalog"   # one row per physical bottle in this shipment
 TARGET_TABLE = "prod_celr.app.bourbons_weighted"  # new table; cut the app over once verified
 BOTTLES_EXPECTED = 1000          # sanity check only — the real count comes from SOURCE_TABLE
-DRY_RUN = True                    # report only; set False to write
+DRY_RUN = False                    # report only; set False to write
 WRITE_MODE = "overwrite"          # overwrite = full floor rebuild (replaces all rows)
 FILL_GAP_PLACEHOLDERS = True      # inject a single flagged row for any empty (tier, band) cell
 
@@ -289,3 +289,6 @@ else:
 # MAGIC    needed there.
 # MAGIC That migration touches the live checkout path and was intentionally left out
 # MAGIC of this script — do it as a reviewed follow-up.
+
+# COMMAND ----------
+
