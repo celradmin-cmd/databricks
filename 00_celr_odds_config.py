@@ -34,8 +34,15 @@ ODDS_CURVE = [
 ]
 
 # Weights are integers so the pull selector stays simple. SCALE = sum of all weights in
-# a tier; with SCALE=1000 a 0.5% band carries weight 5 (matches your seed data exactly).
-WEIGHT_SCALE = 1000
+# a tier IF a band held exactly one bottle. With a shared 1,000-bottle pool, a single
+# (tier, band) cell can end up with hundreds of real bottles at once (a bottle's price can
+# make it eligible for several tiers' cells simultaneously) — weight_for_band() splits the
+# band's fixed weight budget (target_prob * WEIGHT_SCALE) evenly across all of them, and
+# with too small a scale that per-bottle share rounds down to 0, silently zeroing the
+# band's odds. 1,000,000 keeps a nonzero weight (>=1) up to ~thousands of bottles per cell
+# even for the rarest 0.2%-0.5% bands — comfortably above anything a 1,000-4,000-row floor
+# will ever produce.
+WEIGHT_SCALE = 1_000_000
 
 # The lowest and highest multiple the curve covers. A bottle whose retail value falls
 # outside [floor_lo * price, ceil_hi * price] does NOT belong in that tier.

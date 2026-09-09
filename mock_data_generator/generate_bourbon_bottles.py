@@ -210,7 +210,18 @@ def clean_desc(d):
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## 4. Fill loop — stops at the total budget, not at full cell saturation
+# MAGIC ## 4. Fill loop — two phases, both driven off the same TOTAL_BOTTLES budget
+# MAGIC **Phase 1** targets the neediest cell first, same as before, crediting every
+# MAGIC tier a bottle happens to qualify for. Because one bottle's price can satisfy
+# MAGIC several tiers' cells at once, total demand across all 24 cells is often
+# MAGIC satisfied well under the budget — that's the point, not a bug. But stopping
+# MAGIC there means the run silently generates fewer bottles than asked for.
+# MAGIC
+# MAGIC **Phase 2** spends whatever budget is left over once demand is satisfied,
+# MAGIC picking bands weighted by the odds curve (so extras still land mostly in the
+# MAGIC common bands) purely for variety. This is safe with a properly-sized
+# MAGIC `WEIGHT_SCALE`: extra bottles in an already-satisfied band just mean more
+# MAGIC distinct SKUs sharing that band's weight, not skewed odds.
 
 # COMMAND ----------
 
@@ -224,19 +235,11 @@ rows = []
 used_names = set()   # only enforced for fictional naming
 MAX_ITERS = TOTAL_BOTTLES * 3 + 1000
 iters = 0
-while len(rows) < TOTAL_BOTTLES and total > 0 and iters < MAX_ITERS:
-    iters += 1
-    (t, b), gap = max(need.items(), key=lambda kv: kv[1])
-    if gap <= 0:
-        break
-    want = min(GEN_BATCH, gap, TOTAL_BOTTLES - len(rows))
-    lo, hi = BANDS[b]
-    lo_d, hi_d = int(round(lo * TIER_PRICE[t])), int(round(hi * TIER_PRICE[t]))
-    try:
-        recs = call_llm_text(want, lo_d, hi_d)
-    except Exception as e:
-        print(f"[warn] LLM call failed ({e}); retrying")
-        continue
+
+def accept_records(recs, tier, band, credit_need):
+    """Classify + dedupe a batch of LLM records into `rows`. Returns count added."""
+    global total
+    added = 0
     for rec in recs:
         if len(rows) >= TOTAL_BOTTLES:
             break
@@ -248,7 +251,7 @@ while len(rows) < TOTAL_BOTTLES and total > 0 and iters < MAX_ITERS:
             continue
         if NAMING == "fictional_house" and key in used_names:
             continue  # real names may repeat across physical bottles
-        rv = float(retail_for_cell(t, b))
+        rv = float(retail_for_cell(tier, band))
         elig, _ptier, pband = classify(rv)
         if not elig:
             continue
@@ -262,16 +265,57 @@ while len(rows) < TOTAL_BOTTLES and total > 0 and iters < MAX_ITERS:
             "rarity": RARITY_BY_BAND[pband],
             "retail_value": rv,
         })
-        # credit every needy cell this bottle covers
-        for (et, _em, eb) in elig:
-            if need.get((et, eb), 0) > 0:
-                need[(et, eb)] -= 1
-                total -= 1
+        added += 1
+        if credit_need:
+            # credit every needy cell this bottle covers
+            for (et, _em, eb) in elig:
+                if need.get((et, eb), 0) > 0:
+                    need[(et, eb)] -= 1
+                    total -= 1
+    return added
 
-print(f"generated {len(rows)} bottles over {iters} iterations (budget {TOTAL_BOTTLES}); remaining need={total}")
+while len(rows) < TOTAL_BOTTLES and total > 0 and iters < MAX_ITERS:
+    iters += 1
+    (t, b), gap = max(need.items(), key=lambda kv: kv[1])
+    if gap <= 0:
+        break
+    want = min(GEN_BATCH, gap, TOTAL_BOTTLES - len(rows))
+    lo, hi = BANDS[b]
+    lo_d, hi_d = int(round(lo * TIER_PRICE[t])), int(round(hi * TIER_PRICE[t]))
+    try:
+        recs = call_llm_text(want, lo_d, hi_d)
+    except Exception as e:
+        print(f"[warn] LLM call failed ({e}); retrying")
+        continue
+    accept_records(recs, t, b, credit_need=True)
+
+phase1_count = len(rows)
+print(f"phase 1: generated {phase1_count} bottles over {iters} iterations; remaining need={total}")
 leftover = {k: v for k, v in need.items() if v > 0}
 if leftover:
-    print(f"[info] cells still short at budget exhaustion (weighted floor builder will placeholder these): {leftover}")
+    print(f"[info] cells still short after phase 1 (weighted floor builder will placeholder these): {leftover}")
+
+# Phase 2: demand satisfied (or LLM/iteration budget hit) before the bottle budget did —
+# spend what's left on odds-curve-weighted variety instead of stopping short.
+while len(rows) < TOTAL_BOTTLES and iters < MAX_ITERS:
+    iters += 1
+    b = random.choices(range(len(BANDS)), weights=PROBS, k=1)[0]
+    t = random.choice(list(TIER_PRICE))
+    want = min(GEN_BATCH, TOTAL_BOTTLES - len(rows))
+    try:
+        recs = call_llm_text(want, *[int(round(m * TIER_PRICE[t])) for m in BANDS[b]])
+    except Exception as e:
+        print(f"[warn] LLM call failed ({e}); retrying")
+        continue
+    accept_records(recs, t, b, credit_need=False)
+
+if len(rows) > phase1_count:
+    print(f"phase 2: added {len(rows) - phase1_count} bonus bottles to reach the {TOTAL_BOTTLES} budget")
+
+print(f"generated {len(rows)} bottles total over {iters} iterations (budget {TOTAL_BOTTLES})")
+if len(rows) < TOTAL_BOTTLES:
+    print(f"[warn] stopped {TOTAL_BOTTLES - len(rows)} short of budget after {MAX_ITERS} iterations "
+          "— check LLM call failures above.")
 
 # COMMAND ----------
 
