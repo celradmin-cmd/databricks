@@ -69,6 +69,21 @@ assert len(SLOT_NAMES) >= len(TIERS), "need >= 1 slot per possible tier (there a
 # =============================================================================
 
 cat = spark.table(SOURCE_TABLE)
+
+# Exclude bottles 04_sync_collection_from_unicorn.py flagged 'retired' (shipped or
+# stored — physically gone from available inventory). Safe if the column doesn't
+# exist yet (older gold snapshot, or that notebook hasn't been run): everything is
+# treated as available. NULL also means available (never yet flagged).
+if "app_status" in cat.columns:
+    n_before_retired_filter = cat.count()
+    cat = cat.where((F.col("app_status").isNull()) | (F.col("app_status") != "retired"))
+    n_retired = n_before_retired_filter - cat.count()
+    if n_retired:
+        print(f"Excluded {n_retired} retired bottles (shipped/stored) from this floor build.")
+else:
+    print("[info] app_status column not present on the source catalog yet — "
+          "run 04_sync_collection_from_unicorn.py's Part 2 to enable retired-bottle exclusion.")
+
 n_bottles = cat.count()
 print(f"Source catalog: {n_bottles} physical bottles (expected ~{BOTTLES_EXPECTED}).")
 if abs(n_bottles - BOTTLES_EXPECTED) > 0.1 * BOTTLES_EXPECTED:
