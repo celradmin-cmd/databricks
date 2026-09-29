@@ -18,7 +18,7 @@
 # COMMAND ----------
 
 # Pull price for each tier (the "dollar amount you spent on the pull").
-TIER_PRICE = {1: 50, 2: 100, 3: 500, 4: 1000}
+TIER_PRICE = {1: 50, 2: 100, 5: 250, 3: 500, 4: 1000}
 
 # The house curve, as multiplier bands of the pull price.
 # Each tuple: (lo_multiple_inclusive, hi_multiple_exclusive, target_probability)

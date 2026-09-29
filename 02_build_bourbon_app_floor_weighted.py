@@ -14,17 +14,17 @@
 # MAGIC pull then reproduces the curve because the counts *are* the odds.
 # MAGIC
 # MAGIC The bourbon order shrank to **1,000 physical bottles total**, shared across all
-# MAGIC 4 tiers. The same bottle can be eligible for up to 4 tiers at once (e.g. a
+# MAGIC 5 tiers. The same bottle can be eligible for up to 5 tiers at once (e.g. a
 # MAGIC $600 bottle sits in a band at every tier from $50 to $1000 — the curve spans
-# MAGIC 0.5x-16x of pull price, so $500-$800 clears all four floors simultaneously).
+# MAGIC 0.5x-16x of pull price, so $500-$800 clears all five floors simultaneously).
 # MAGIC That makes row-count replication actively wrong here: if the same physical
 # MAGIC bottle were stored as separate rows per tier, retiring it after one tier's
 # MAGIC pull (`DELETE ... WHERE id = :bottleId`, see `celr/src/lib/bourbons.functions.ts`)
 # MAGIC would leave phantom copies still listed as available in its other tiers.
 # MAGIC
 # MAGIC So this build is **one row per physical bottle** (wide), not one row per
-# MAGIC `(bottle, tier)` placement (tall). Each row carries up to 4 tier placements —
-# MAGIC `primary/secondary/tertiary/quaternary_{tier,band,weight}` — ordered
+# MAGIC `(bottle, tier)` placement (tall). Each row carries up to 5 tier placements —
+# MAGIC `primary/secondary/tertiary/quaternary/quinary_{tier,band,weight}` — ordered
 # MAGIC closest-to-par first (that's already how `eligible_tiers` is sorted upstream
 # MAGIC in `00_celr_odds_config.eligible_tiers`). Deleting one row now correctly
 # MAGIC removes the bottle from every tier it was eligible for, in one statement.
@@ -33,12 +33,12 @@
 # MAGIC Odds no longer come from row counts — they come from the **weight** column
 # MAGIC (`weight_for_band` in `00_celr_odds_config`, already defined but unused by the
 # MAGIC count-based approach). For a `(tier, band)` cell with target probability `p`
-# MAGIC and `n` bottles landing in it (via ANY of their 4 slots), each bottle gets
+# MAGIC and `n` bottles landing in it (via ANY of their 5 slots), each bottle gets
 # MAGIC weight `round(p * WEIGHT_SCALE / n)`. A band with only one real bottle simply
 # MAGIC puts the entire band's weight on that one row — no replication required. This
-# MAGIC is also why total row count lands around ~3,500-4,000 *placements* even though
+# MAGIC is also why total row count lands well above 1,000 *placements* even though
 # MAGIC there are only 1,000 physical rows: it's the natural result of the average
-# MAGIC bottle being eligible for ~3.5 tiers, not a target to hit.
+# MAGIC bottle being eligible for several tiers at once, not a target to hit.
 # MAGIC
 # MAGIC **The app's pull query MUST change to use this column before this table is
 # MAGIC live** (out of scope for this script — see the note at the bottom). Today
@@ -70,8 +70,8 @@ FILL_GAP_PLACEHOLDERS = True      # inject a single flagged row for any empty (t
 TARGET_PROBS = [p for (_lo, _hi, p) in ODDS_CURVE]
 TIERS = sorted(TIER_PRICE)
 BANDS = list(range(len(TARGET_PROBS)))
-SLOT_NAMES = ["primary", "secondary", "tertiary", "quaternary"]   # closest-to-par first
-assert len(SLOT_NAMES) >= len(TIERS), "need >= 1 slot per possible tier (there are only 4 tiers)"
+SLOT_NAMES = ["primary", "secondary", "tertiary", "quaternary", "quinary"]   # closest-to-par first
+assert len(SLOT_NAMES) >= len(TIERS), f"need >= 1 slot per possible tier (there are {len(TIERS)} tiers)"
 # =============================================================================
 
 cat = spark.table(SOURCE_TABLE)
@@ -107,7 +107,7 @@ if cat.limit(1).count() == 0 or "eligible_tiers" not in cat.columns:
 
 # MAGIC %md ### 1. Explode each bottle's eligible tiers, keeping slot position
 # MAGIC `posexplode` preserves the closest-to-par ordering already computed by
-# MAGIC `eligible_tiers()` — position 0 is primary, 1 secondary, 2 tertiary, 3 quaternary.
+# MAGIC `eligible_tiers()` — position 0 is primary, 1 secondary, 2 tertiary, 3 quaternary, 4 quinary.
 
 # COMMAND ----------
 
@@ -188,6 +188,7 @@ for t, b in missing_cells:
         None, None, None,  # secondary_*
         None, None, None,  # tertiary_*
         None, None, None,  # quaternary_*
+        None, None, None,  # quinary_*
     ))
 
 if missing_cells:
@@ -201,7 +202,8 @@ if FILL_GAP_PLACEHOLDERS and placeholder_rows:
                  "primary_tier int, primary_band int, primary_weight int, "
                  "secondary_tier int, secondary_band int, secondary_weight int, "
                  "tertiary_tier int, tertiary_band int, tertiary_weight int, "
-                 "quaternary_tier int, quaternary_band int, quaternary_weight int")
+                 "quaternary_tier int, quaternary_band int, quaternary_weight int, "
+                 "quinary_tier int, quinary_band int, quinary_weight int")
     ph = spark.createDataFrame(placeholder_rows, ph_schema)
     floor_pre = real_rows.unionByName(ph)
 else:
@@ -279,6 +281,9 @@ floor = floor_pre.select(
     F.col("quaternary_tier").cast("int").alias("quaternary_tier"),
     F.col("quaternary_band").cast("int").alias("quaternary_band"),
     F.col("quaternary_weight").cast("int").alias("quaternary_weight"),
+    F.col("quinary_tier").cast("int").alias("quinary_tier"),
+    F.col("quinary_band").cast("int").alias("quinary_band"),
+    F.col("quinary_weight").cast("int").alias("quinary_weight"),
 )
 
 n = floor.count()
@@ -295,7 +300,7 @@ else:
 # MAGIC %md ### 7. NOT done here — the app-side cutover
 # MAGIC This script only builds the Databricks table. Before pointing the live app at
 # MAGIC it, `celr/src/lib/payments.functions.ts` (`performRip`) needs to:
-# MAGIC 1. Select rows where `:tier IN (primary_tier, secondary_tier, tertiary_tier, quaternary_tier)`.
+# MAGIC 1. Select rows where `:tier IN (primary_tier, secondary_tier, tertiary_tier, quaternary_tier, quinary_tier)`.
 # MAGIC 2. Pick with a WEIGHTED random draw using whichever `*_weight` column matches
 # MAGIC    the requested tier (currently it does `SELECT * WHERE tier = :t` then
 # MAGIC    `Math.random() * bourbons.length` — a uniform pick that ignores weight).
