@@ -62,6 +62,13 @@
       "queryLines": [
         "SELECT pull_number, bottle_label, retail_value, pull_price, net_dollars,\n       is_win, is_placeholder, cumulative_net, losses_before_this_pull\nFROM prod_celr.gold.pull_simulation_pulls\nWHERE spirit = 'bourbon' AND tier = 4\nORDER BY pull_number"
       ]
+    },
+    {
+      "name": "ds_walk_t5",
+      "displayName": "Tier 5 ($250 pull) \u2014 example session, pull by pull",
+      "queryLines": [
+        "SELECT pull_number, bottle_label, retail_value, pull_price, net_dollars,\n       is_win, is_placeholder, cumulative_net, losses_before_this_pull\nFROM prod_celr.gold.pull_simulation_pulls\nWHERE spirit = 'bourbon' AND tier = 5\nORDER BY pull_number"
+      ]
     }
   ],
   "pages": [
@@ -1476,6 +1483,206 @@
           "position": {
             "x": 6,
             "y": 21,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "t_walk_t5",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_walk_t5",
+                  "fields": [
+                    {
+                      "name": "pull_number",
+                      "expression": "`pull_number`"
+                    },
+                    {
+                      "name": "bottle_label",
+                      "expression": "`bottle_label`"
+                    },
+                    {
+                      "name": "retail_value",
+                      "expression": "`retail_value`"
+                    },
+                    {
+                      "name": "pull_price",
+                      "expression": "`pull_price`"
+                    },
+                    {
+                      "name": "net_dollars",
+                      "expression": "`net_dollars`"
+                    },
+                    {
+                      "name": "is_win",
+                      "expression": "`is_win`"
+                    },
+                    {
+                      "name": "is_placeholder",
+                      "expression": "`is_placeholder`"
+                    },
+                    {
+                      "name": "cumulative_net",
+                      "expression": "`cumulative_net`"
+                    },
+                    {
+                      "name": "losses_before_this_pull",
+                      "expression": "`losses_before_this_pull`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "pull_number",
+                    "displayName": "Pull #"
+                  },
+                  {
+                    "fieldName": "bottle_label",
+                    "displayName": "Bottle"
+                  },
+                  {
+                    "fieldName": "retail_value",
+                    "displayName": "Retail value",
+                    "format": {
+                      "type": "number-currency",
+                      "currencyCode": "USD",
+                      "decimalPlaces": {
+                        "type": "max",
+                        "places": 0
+                      }
+                    }
+                  },
+                  {
+                    "fieldName": "pull_price",
+                    "displayName": "Paid",
+                    "format": {
+                      "type": "number-currency",
+                      "currencyCode": "USD",
+                      "decimalPlaces": {
+                        "type": "max",
+                        "places": 0
+                      }
+                    }
+                  },
+                  {
+                    "fieldName": "net_dollars",
+                    "displayName": "Net $",
+                    "format": {
+                      "type": "number-currency",
+                      "currencyCode": "USD",
+                      "decimalPlaces": {
+                        "type": "max",
+                        "places": 0
+                      }
+                    }
+                  },
+                  {
+                    "fieldName": "is_win",
+                    "displayName": "Won?"
+                  },
+                  {
+                    "fieldName": "is_placeholder",
+                    "displayName": "Gap placeholder?"
+                  },
+                  {
+                    "fieldName": "cumulative_net",
+                    "displayName": "Running total $",
+                    "format": {
+                      "type": "number-currency",
+                      "currencyCode": "USD",
+                      "decimalPlaces": {
+                        "type": "max",
+                        "places": 0
+                      }
+                    }
+                  },
+                  {
+                    "fieldName": "losses_before_this_pull",
+                    "displayName": "Losses right before this win"
+                  }
+                ]
+              },
+              "frame": {
+                "title": "Tier 5 ($250 pull) \u2014 pull by pull",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 28,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "l_walk_t5",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_walk_t5",
+                  "fields": [
+                    {
+                      "name": "pull_number",
+                      "expression": "`pull_number`"
+                    },
+                    {
+                      "name": "cumulative_net",
+                      "expression": "`cumulative_net`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "pull_number",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Pull #"
+                },
+                "y": {
+                  "fieldName": "cumulative_net",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Running total $",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "USD",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 0
+                    }
+                  }
+                }
+              },
+              "frame": {
+                "title": "Tier 5 \u2014 running total across the session",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 28,
             "width": 6,
             "height": 7
           }

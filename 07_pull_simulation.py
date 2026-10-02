@@ -83,7 +83,7 @@ SPIRITS = {
 }
 TARGETS = list(SPIRITS) if SPIRIT_ARG == "both" else [SPIRIT_ARG]
 TIERS = sorted(SELLABLE_TIERS)
-SLOT_NAMES = ["primary", "secondary", "tertiary", "quaternary"]  # see APP_SYNC_SLOTS elsewhere
+SLOT_NAMES = ["primary", "secondary", "tertiary", "quaternary", "quinary"]  # all 5 tiers are sellable now
 
 PULLS_TBL     = f"{CATALOG}.{GOLD}.pull_simulation_pulls"
 SESSIONS_TBL  = f"{CATALOG}.{GOLD}.pull_simulation_sessions"

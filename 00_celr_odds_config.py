@@ -41,26 +41,20 @@
 # COMMAND ----------
 
 # Pull price for each tier (the "dollar amount you spent on the pull").
-# Tier 5 ($250) exists in the warehouse model but is NOT purchasable in the app —
-# `TIER_PRICE_CENTS` in `celr/src/lib/payments.functions.ts` only sells 1/2/3/4.
-# It is kept here so re-enabling it is a one-line change to SELLABLE_TIERS, but it
-# is excluded from every floor build; see SELLABLE_TIERS below for why that matters.
 TIER_PRICE = {1: 50, 2: 100, 5: 250, 3: 500, 4: 1000}
 
 # Tiers the app actually sells. ONLY these get placements on a floor.
 #
-# This is not cosmetic. A bottle's placements are stored in fixed wide slot columns
-# (primary/secondary/tertiary/quaternary), ordered closest-to-par, and the app-side
-# sync in `celr/src/lib/weighted-sync.server.ts` reads exactly four of them. If
-# tier 5 were placed, a bottle eligible for all five tiers would push one real,
-# sellable tier into a fifth slot that the sync silently drops — losing that
-# bottle's odds contribution in a tier players can actually buy. Four sellable
-# tiers means at most four placements, so nothing can overflow.
-#
-# If you re-enable tier 5: add a quinary slot to `bourbons_weighted`/`agave_weighted`
-# in Supabase, to `merge_weighted_catalog`, to `weighted_tier_catalog`, and to the
-# SELECT in `weighted-sync.server.ts` — all four, or the odds go quietly wrong.
-SELLABLE_TIERS = (1, 2, 3, 4)
+# Tier 5 ($250) went live alongside tiers 1-4 — `celr/src/lib/tiers.ts`,
+# `payments.functions.ts` and `bourbons.functions.ts` all sell it. That made the
+# fifth (quinary) wide-slot column load-bearing rather than unused: a bottle
+# eligible for all five tiers now genuinely needs all five placements carried
+# through, in `bourbons_weighted`/`agave_weighted`, `merge_weighted_catalog`,
+# `weighted_tier_catalog`, and the SELECT in `weighted-sync.server.ts`. If you
+# ever need to pull a tier from sale again, remove it here first — the builders'
+# `len(TIERS) <= APP_SYNC_SLOTS` assert is what would catch a slot mismatch if
+# a 6th tier were added without widening the schema the same way.
+SELLABLE_TIERS = (1, 2, 3, 4, 5)
 
 # The house curve, as multiplier bands of the pull price.
 # Each tuple: (lo_multiple_inclusive, hi_multiple_exclusive, target_probability).

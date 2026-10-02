@@ -71,17 +71,24 @@ that would delete the bronze rows holding the `ever_placed` ledger.
 
 ## Tier 5
 
-`TIER_PRICE` prices a $250 tier 5, but `SELLABLE_TIERS` excludes it because the app
-does not sell it (`TIER_PRICE_CENTS` in `celr/src/lib/payments.functions.ts` has
-1/2/3/4 only). This is load-bearing, not cosmetic: placements are stored in wide
-slot columns ordered *closest-to-par*, and the app-side sync reads exactly four of
-them, so a fifth placement pushes a real sellable tier out of range and it is
-dropped on sync. Four sellable tiers means at most four placements.
+Tier 5 ($250) is sellable now — `SELLABLE_TIERS` includes it, matching
+`celr/src/lib/tiers.ts`, `payments.functions.ts`, and `bourbons.functions.ts`,
+which all sell it. That makes the fifth (quinary) wide slot column load-bearing:
+a bottle eligible for all five tiers needs all five placements carried through,
+or one of them silently loses its odds contribution on sync.
 
-Re-enabling tier 5 means adding a quinary slot in four places at once —
-`bourbons_weighted`/`agave_weighted`, `merge_weighted_catalog`,
-`weighted_tier_catalog`, and the SELECT in `weighted-sync.server.ts`. The builders
-assert this and the sync refuses to import a floor it cannot represent.
+Five places had to move together for this to work, and all five are done:
+`bourbons_weighted`/`agave_weighted` (new columns, migration
+`20261002171026_...`), `merge_weighted_catalog`, `weighted_tier_catalog`, the
+SELECT in `weighted-sync.server.ts` (both `syncWeightedFromDatabricks` and
+`replaceWeightedFromDatabricks`), and `APP_SYNC_SLOTS = 5` in `02`/`03`/`05`/`07`.
+The builders' `len(TIERS) <= APP_SYNC_SLOTS` assert is what would catch the next
+one of these going out of sync if a 6th tier is ever added.
+
+**Confirm the Stripe side separately** — `payments.functions.ts` looks up prices
+by lookup key (`celr_tier_5_pack` / `celr_agave_tier_5_pack`); if those don't
+exist in Stripe yet, a card-funded tier-5 checkout throws `Tier 5 price not
+configured` rather than failing silently. Not something this repo can verify.
 
 ## Pull simulation + dashboard
 

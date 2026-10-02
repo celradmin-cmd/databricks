@@ -112,7 +112,7 @@ SPIRITS = {
 TARGETS = list(SPIRITS) if SPIRIT_ARG == "both" else [SPIRIT_ARG]
 
 SLOT_NAMES = ["primary", "secondary", "tertiary", "quaternary", "quinary"]
-APP_SYNC_SLOTS = 4   # see 02_build_bourbon_app_floor_weighted.py
+APP_SYNC_SLOTS = 5   # see 02_build_bourbon_app_floor_weighted.py — all 5 tiers are sellable now
 TIERS = sorted(SELLABLE_TIERS)
 BANDS = list(range(len(ODDS_CURVE)))
 

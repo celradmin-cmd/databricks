@@ -70,9 +70,8 @@ KEEP_BOTTLES_ALREADY_ON_FLOOR = True
 
 # Odds targets, band index -> probability. Must match ODDS_CURVE in 00_celr_odds_config.
 TARGET_PROBS = [p for (_lo, _hi, p) in ODDS_CURVE]
-# Only tiers the app actually sells get placements. Tier 5 ($250) is priced in
-# TIER_PRICE but not purchasable, so placing bottles in it would burn a slot that
-# the app-side sync then drops. See SELLABLE_TIERS in 00_celr_odds_config.
+# Only tiers the app actually sells get placements — see SELLABLE_TIERS in
+# 00_celr_odds_config. All five tiers (including tier 5, $250) are sellable today.
 TIERS = sorted(SELLABLE_TIERS)
 BANDS = list(range(len(TARGET_PROBS)))
 SLOT_NAMES = ["primary", "secondary", "tertiary", "quaternary", "quinary"]   # closest-to-par first
@@ -81,8 +80,8 @@ SLOT_NAMES = ["primary", "secondary", "tertiary", "quaternary", "quinary"]   # c
 # when it pulls this table into Supabase. Anything beyond this is written here and
 # then silently discarded on sync — the bottle keeps its warehouse placement but
 # loses the odds contribution in the live app. Slots are ordered closest-to-par,
-# NOT by tier number, so an overflowing slot is a random real tier, not tier 5.
-APP_SYNC_SLOTS = 4
+# NOT by tier number, so an overflowing slot is a random real tier, not a specific one.
+APP_SYNC_SLOTS = 5
 assert len(SLOT_NAMES) >= len(TIERS), f"need >= 1 slot per possible tier (there are {len(TIERS)} tiers)"
 assert len(TIERS) <= APP_SYNC_SLOTS, (
     f"{len(TIERS)} sellable tiers but the app sync only reads {APP_SYNC_SLOTS} slot columns — "
@@ -310,57 +309,6 @@ for t in TIERS:
         print(f"  band{b + 1}: target {target:5.1f}%  actual {pct:5.1f}%  "
               f"(weight {w:>4} across {n:>3} row{'s' if n != 1 else ' '}) {flag}")
 print("\nComposition matches targets." if ok_all else "\n!! Composition mismatch — check rounding or missing cells.")
-
-# COMMAND ----------
-
-# MAGIC %md ### 5b. Informational only — Tier 5 ($250) band coverage
-# MAGIC Tier 5 is priced in `TIER_PRICE` but excluded from `SELLABLE_TIERS` — the app
-# MAGIC doesn't sell it, so nothing above placed, weighted, or wrote a tier-5 slot.
-# MAGIC This block changes none of that. It only answers "if tier 5 were turned on
-# MAGIC today, how would THIS shipment's bottles (`real_rows`, the same bottles the
-# MAGIC verification above just checked) land across its bands?" — using
-# MAGIC `band_index()` directly against tier 5's price, which works for any tier in
-# MAGIC `TIER_PRICE` regardless of `SELLABLE_TIERS`.
-# MAGIC
-# MAGIC "actual" here is a bottle **count** share, not a weight share — there's no
-# MAGIC `weight` column for a tier nothing was ever placed into, so a count is the
-# MAGIC only honest number. Every tier-5-eligible bottle is already counted in
-# MAGIC `real_rows`: tier 5's curve ($125–$4,000) sits entirely inside the union of
-# MAGIC tiers 1–4's curves ($25–$16,000, contiguous), so nothing that fits tier 5 was
-# MAGIC ever excluded from this build for lacking a sellable tier.
-
-# COMMAND ----------
-
-INFO_TIER = 5
-if INFO_TIER in TIER_PRICE and INFO_TIER not in TIERS:
-    @F.udf(returnType=IntegerType())
-    def udf_info_band(rv):
-        return band_index(rv, INFO_TIER)
-
-    info_price = TIER_PRICE[INFO_TIER]
-    info_rows = real_rows.select(udf_info_band("retail_value").alias("band_idx")).collect()
-    info_counts: dict = {}
-    n_outside_curve = 0
-    for r in info_rows:
-        if r["band_idx"] is None:
-            n_outside_curve += 1
-        else:
-            info_counts[r["band_idx"]] = info_counts.get(r["band_idx"], 0) + 1
-    info_total = sum(info_counts.values())
-
-    print(f"\nTier {INFO_TIER} (${info_price}) [INFO ONLY — not sellable, not placed, not weighted]")
-    print(f"  {info_total} of this build's {len(info_rows)} bottles fall inside tier 5's curve "
-          f"(${int(round(CURVE_LO * info_price))}–${int(round(CURVE_HI * info_price))}); "
-          f"{n_outside_curve} do not.")
-    for b in BANDS:
-        n = info_counts.get(b, 0)
-        actual_pct = (n / info_total * 100) if info_total else 0.0
-        target = TARGET_PROBS[b] * 100
-        print(f"  band{b + 1}: target {target:5.1f}%  actual {actual_pct:5.1f}%  "
-              f"({n:>3} bottle{'s' if n != 1 else ' '} of this shipment's stock, by count)")
-else:
-    print(f"\n(Tier {INFO_TIER} info section skipped — it's already in SELLABLE_TIERS "
-          f"and covered by the real breakdown above, or no longer priced in TIER_PRICE.)")
 
 # COMMAND ----------
 
