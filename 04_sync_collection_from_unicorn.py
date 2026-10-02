@@ -398,21 +398,66 @@ else:
 
 # COMMAND ----------
 
-# MAGIC %md ## Part 2. Flag gold with app_status
+# MAGIC %md ## Part 2. Flag gold AND bronze with app_status + a sticky `ever_placed`
 # MAGIC Additive, safe to run anytime — `ALTER TABLE ADD COLUMN IF NOT EXISTS` and
-# MAGIC then a full recompute of the flag from current `app`/`rips` state.
+# MAGIC then a full recompute from current `app`/`rips` state.
+# MAGIC
+# MAGIC ### Why `app_status` alone is not enough to stop re-use
+# MAGIC `app_status` is **recomputed from scratch** on every run, so it only ever
+# MAGIC describes *right now*. A bottle that was on a floor and then left it without
+# MAGIC being ripped — a floor rebuild that didn't re-select it, a manual pull, a
+# MAGIC replenishment swap — flips straight back to `available` and is immediately
+# MAGIC eligible to be placed again. That is exactly the re-use we need to prevent:
+# MAGIC once a physical bottle has been shown on the app, it is spoken for.
+# MAGIC
+# MAGIC So this also maintains two **sticky** columns that are only ever set, never
+# MAGIC cleared:
+# MAGIC - `ever_placed` (boolean) — this bottle has been on an app floor at least once.
+# MAGIC - `first_placed_at` (timestamp) — when we first saw it there.
+# MAGIC
+# MAGIC The floor builders and the replenishment engine both draw only from
+# MAGIC `ever_placed = false`, so the reserve pool strictly shrinks and no bottle can
+# MAGIC appear twice. `app_status` stays as the live view; `ever_placed` is the ledger.
+# MAGIC
+# MAGIC ### Why bronze too
+# MAGIC Gold is rebuilt by `01_classify_and_enrich.py` from bronze. If the flags lived
+# MAGIC only in gold, a re-run of `01` would drop them and the whole reserve pool would
+# MAGIC read as untouched. Writing the same flags back to the bronze inventory tables
+# MAGIC makes them survive a gold rebuild, and lets the bottle generators in
+# MAGIC `mock_data_generator/` see which serials are already spent.
 
 # COMMAND ----------
 
 from pyspark.sql import functions as F
 
-def flag_gold(gold_table, app_tables, spirit_column_on_rips):
-    spark.sql(f"ALTER TABLE {gold_table} ADD COLUMN IF NOT EXISTS app_status STRING")
+# bronze tables that hold the same physical bottles, and the column each one keys on.
+BRONZE_FOR_SPIRIT = {
+    "bourbon": [(f"{CATALOG}.{BRONZE}.bourbon_inventory", "bottle_serial")],
+    "agave":   [(f"{CATALOG}.{BRONZE}.agave_inventory", "bottle_serial")],
+}
+# The real-collection table holds both spirits in one table, keyed on uuid.
+COLLECTION_BRONZE = (COLLECTION_TBL, "uuid")
 
+FLAG_COLUMNS = [
+    ("app_status", "STRING"),
+    ("ever_placed", "BOOLEAN"),
+    ("first_placed_at", "TIMESTAMP"),
+]
+
+
+def _add_flag_columns(table):
+    for col, sql_type in FLAG_COLUMNS:
+        spark.sql(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {sql_type}")
+
+
+def compute_status(gold_table, app_tables, spirit_column_on_rips):
+    """One row per bottle_serial in gold: its live app_status and whether it has
+    ever been placed. `ever_placed` is OR-ed with whatever gold already recorded,
+    so it can only ever go from false to true."""
     in_app_ids = None
     for t in app_tables:
         try:
-            df = spark.table(t).select("id").withColumnRenamed("id", "bottle_serial")
+            df = spark.table(t).select(F.col("id").alias("bottle_serial"))
             in_app_ids = df if in_app_ids is None else in_app_ids.unionByName(df)
         except Exception as e:
             print(f"  [info] {t} not readable ({e}); skipping for in_app detection")
@@ -421,6 +466,8 @@ def flag_gold(gold_table, app_tables, spirit_column_on_rips):
     in_app_ids = in_app_ids.distinct()
 
     try:
+        # 'sold' is deliberately excluded: decideRip's sell branch never calls
+        # retireBottle(), so a sold-back bottle is still physically on the floor.
         retired_ids = (spark.table(RIPS_TBL)
             .where(f"{spirit_column_on_rips} IS NOT NULL AND status IN ('shipped', 'stored')")
             .select(F.col(spirit_column_on_rips).alias("bottle_serial"))
@@ -430,31 +477,89 @@ def flag_gold(gold_table, app_tables, spirit_column_on_rips):
         retired_ids = spark.createDataFrame([], "bottle_serial string")
 
     gold = spark.table(gold_table)
-    status = (gold.select("bottle_serial")
+    # Read whatever stickiness gold already carries; treat a missing column as "no
+    # history yet" so the very first run of this notebook still works.
+    prior = (gold.select("bottle_serial",
+                         F.col("ever_placed").alias("_prior_placed")
+                         if "ever_placed" in gold.columns else F.lit(False).alias("_prior_placed"),
+                         F.col("first_placed_at").alias("_prior_at")
+                         if "first_placed_at" in gold.columns else F.lit(None).cast("timestamp").alias("_prior_at")))
+
+    return (prior
         .join(in_app_ids.withColumn("_in_app", F.lit(True)), "bottle_serial", "left")
         .join(retired_ids.withColumn("_retired", F.lit(True)), "bottle_serial", "left")
         .withColumn("app_status",
             F.when(F.col("_in_app"), "in_app")
              .when(F.col("_retired"), "retired")
              .otherwise("available"))
-        .select("bottle_serial", "app_status"))
+        # Sticky: true if it is on a floor now, has been ripped off one, or was
+        # already marked. Never goes back to false.
+        .withColumn("ever_placed",
+            F.coalesce(F.col("_in_app"), F.lit(False))
+            | F.coalesce(F.col("_retired"), F.lit(False))
+            | F.coalesce(F.col("_prior_placed"), F.lit(False)))
+        # Keep the original timestamp once set; stamp now the first time we see it placed.
+        .withColumn("first_placed_at",
+            F.when(F.col("_prior_at").isNotNull(), F.col("_prior_at"))
+             .when(F.col("_in_app") | F.col("_retired"), F.current_timestamp())
+             .otherwise(F.lit(None).cast("timestamp")))
+        .select("bottle_serial", "app_status", "ever_placed", "first_placed_at"))
+
+
+def apply_flags(table, key_column, status):
+    """Merge the computed flags into any table keyed by physical bottle.
+
+    `ever_placed` is OR-ed on the way in as well, so applying a stale or partial
+    status set to bronze can never un-spend a bottle."""
+    _add_flag_columns(table)
+    src = status.withColumnRenamed("bottle_serial", "_key")
+    target = DeltaTable.forName(spark, table)
+    (target.alias("t")
+        .merge(src.alias("s"), f"t.{key_column} = s._key")
+        .whenMatchedUpdate(set={
+            "app_status": "s.app_status",
+            "ever_placed": "COALESCE(t.ever_placed, false) OR COALESCE(s.ever_placed, false)",
+            "first_placed_at": "COALESCE(t.first_placed_at, s.first_placed_at)",
+        })
+        .execute())
+
+
+def flag_spirit(spirit, gold_table, app_tables, spirit_column_on_rips):
+    _add_flag_columns(gold_table)
+    status = compute_status(gold_table, app_tables, spirit_column_on_rips)
 
     if DRY_RUN:
         counts = status.groupBy("app_status").count().collect()
+        n_placed = status.where("ever_placed").count()
         print(f"DRY RUN: {gold_table} app_status would be — " +
-              ", ".join(f"{r['app_status']}={r['count']}" for r in counts))
+              ", ".join(f"{r['app_status']}={r['count']}" for r in counts) +
+              f"; ever_placed={n_placed}")
         return
 
-    target = DeltaTable.forName(spark, gold_table)
-    (target.alias("t")
-        .merge(status.alias("s"), "t.bottle_serial = s.bottle_serial")
-        .whenMatchedUpdate(set={"app_status": "s.app_status"})
-        .execute())
-    counts = spark.table(gold_table).groupBy("app_status").count().collect()
-    print(f"{gold_table} app_status — " + ", ".join(f"{r['app_status']}={r['count']}" for r in counts))
+    status.cache()
+    apply_flags(gold_table, "bottle_serial", status)
 
-flag_gold(BOURBON_GOLD_TBL, BOURBON_APP_TBLS, "bourbon_id")
-flag_gold(AGAVE_GOLD_TBL, AGAVE_APP_TBLS, "agave_id")
+    # Push the same flags down to every bronze table holding these bottles, so a
+    # gold rebuild from bronze cannot resurrect a spent bottle.
+    for bronze_table, key_col in BRONZE_FOR_SPIRIT[spirit] + [COLLECTION_BRONZE]:
+        try:
+            apply_flags(bronze_table, key_col, status)
+            print(f"  flags propagated to {bronze_table} (key={key_col})")
+        except Exception as e:
+            print(f"  [info] could not flag {bronze_table}: {e}")
+
+    counts = spark.table(gold_table).groupBy("app_status").count().collect()
+    n_placed = spark.table(gold_table).where("ever_placed").count()
+    n_fresh = spark.table(gold_table).where("NOT COALESCE(ever_placed, false)").count()
+    print(f"{gold_table} app_status — " +
+          ", ".join(f"{r['app_status']}={r['count']}" for r in counts))
+    print(f"{gold_table} reserve pool — {n_fresh} never-placed bottles available, "
+          f"{n_placed} already spent.")
+    status.unpersist()
+
+
+flag_spirit("bourbon", BOURBON_GOLD_TBL, BOURBON_APP_TBLS, "bourbon_id")
+flag_spirit("agave", AGAVE_GOLD_TBL, AGAVE_APP_TBLS, "agave_id")
 
 # COMMAND ----------
 
@@ -467,9 +572,7 @@ flag_gold(AGAVE_GOLD_TBL, AGAVE_APP_TBLS, "agave_id")
 # MAGIC    source reading `bronze.collection_items` (split on `mapped_category`,
 # MAGIC    `uuid` as `bottle_serial`, `title` as `name`) once retail_value is solved —
 # MAGIC    say the word and I'll wire that union in.
-# MAGIC 3. **Exclude retired bottles from future floor builds.** Once `app_status`
-# MAGIC    exists, `02_build_bourbon_app_floor_weighted.py` / `03_...agave...` should
-# MAGIC    filter `WHERE app_status != 'retired'` on their `SOURCE_TABLE` read so a
-# MAGIC    shipped/stored bottle never gets re-placed on a rebuilt floor. Small,
-# MAGIC    additive change — I held off only because this notebook is what creates
-# MAGIC    the column in the first place.
+# MAGIC 3. **Carry the flags through `01`.** When `01_classify_and_enrich.py` rebuilds
+# MAGIC    gold it must now select `app_status` / `ever_placed` / `first_placed_at`
+# MAGIC    through from bronze rather than dropping them. That change is made in `01`
+# MAGIC    itself; re-running this notebook afterwards repairs anything that slipped.

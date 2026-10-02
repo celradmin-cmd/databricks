@@ -63,7 +63,26 @@ DO_ENRICH    = dbutils.widgets.get("enrich") == "true"
 
 from pyspark.sql import functions as F
 
-src = (spark.table(BOURBON_SRC_TABLE).unionByName(spark.table(AGAVE_SRC_TABLE)))
+# Re-use flags written back to bronze by `04_sync_collection_from_unicorn.py` Part 2.
+# This notebook rebuilds gold with `mode("overwrite")`, so anything not carried
+# through here is destroyed. `ever_placed` in particular is the ledger that stops a
+# bottle being shown on the app twice — dropping it would silently return every
+# spent bottle to the reserve pool. Defaulted for the first run, before `04` has
+# ever added the columns.
+FLAG_DEFAULTS = {
+    "app_status": F.lit("available").cast("string"),
+    "ever_placed": F.lit(False).cast("boolean"),
+    "first_placed_at": F.lit(None).cast("timestamp"),
+}
+
+def with_flags(df):
+    for col, default in FLAG_DEFAULTS.items():
+        if col not in df.columns:
+            df = df.withColumn(col, default)
+    return df
+
+src = (with_flags(spark.table(BOURBON_SRC_TABLE))
+       .unionByName(with_flags(spark.table(AGAVE_SRC_TABLE))))
 
 # COMMAND ----------
 
@@ -275,6 +294,9 @@ whiskeyCatalog.display()
     "primary_tier", "primary_band", "eligible_tiers",
     F.lit(None).cast("string").alias("image_url"),   # populate from retailer photos later
     F.current_timestamp().alias("cataloged_at"),
+    # Carried through from bronze — see `with_flags` above. Without these the
+    # overwrite below would wipe the never-re-use ledger.
+    "app_status", "ever_placed", "first_placed_at",
  )
  .write.mode("overwrite").option("overwriteSchema", "true")
  .saveAsTable(AGAVE_CATALOG_TBL))
@@ -291,6 +313,9 @@ display(spark.table(AGAVE_CATALOG_TBL).select("name", "retail_value", "primary_t
     "primary_tier", "primary_band", "eligible_tiers",
     F.lit(None).cast("string").alias("image_url"),   # populate from retailer photos later
     F.current_timestamp().alias("cataloged_at"),
+    # Carried through from bronze — see `with_flags` above. Without these the
+    # overwrite below would wipe the never-re-use ledger.
+    "app_status", "ever_placed", "first_placed_at",
  )
  .write.mode("overwrite").option("overwriteSchema", "true")
  .saveAsTable(BOURBON_CATALOG_TBL))
@@ -304,7 +329,7 @@ display(spark.table(BOURBON_CATALOG_TBL).select("name", "retail_value", "primary
 from pyspark.sql import Row
 
 breakdown_rows = []
-for tier in sorted(TIER_PRICE):
+for tier in SELLABLE_TIERS:
     for bi in range(len(ODDS_CURVE)):
         breakdown_rows.append(Row(
             tier=tier, pull_price=TIER_PRICE[tier], band_idx=bi,
@@ -330,7 +355,7 @@ display(spark.table(BOURBON_ODDS_VIEW).orderBy("tier", "band_idx"))
 # COMMAND ----------
 
 breakdown_rows = []
-for tier in sorted(TIER_PRICE):
+for tier in SELLABLE_TIERS:
     for bi in range(len(ODDS_CURVE)):
         breakdown_rows.append(Row(
             tier=tier, pull_price=TIER_PRICE[tier], band_idx=bi,

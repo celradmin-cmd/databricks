@@ -44,6 +44,8 @@ dbutils.widgets.dropdown("naming_mode", "real_commodity", ["real_commodity", "fi
 dbutils.widgets.text("llm_endpoint", "databricks-llama-4-maverick", "Foundation Model endpoint")
 dbutils.widgets.text("gen_batch", "20", "Records per LLM call")
 dbutils.widgets.dropdown("write_mode", "overwrite", ["overwrite", "append"], "Write mode (overwrite = fresh 1,000-bottle inventory)")
+dbutils.widgets.dropdown("restock_from_reorder", "false", ["true", "false"], "Restock: take demand from gold.reorder_recommendations instead of a full-floor target")
+dbutils.widgets.text("reorder_table", "reorder_recommendations", "Gold table holding the buy list")
 dbutils.widgets.dropdown("dry_run", "true", ["true", "false"], "Dry run (no write)")
 
 ENV            = dbutils.widgets.get("environment")
@@ -57,6 +59,9 @@ NAMING         = dbutils.widgets.get("naming_mode")
 LLM            = dbutils.widgets.get("llm_endpoint")
 GEN_BATCH      = int(dbutils.widgets.get("gen_batch"))
 WRITE_MODE     = dbutils.widgets.get("write_mode")
+RESTOCK_FROM_REORDER = dbutils.widgets.get("restock_from_reorder") == "true"
+REORDER_TBL    = f"{CATALOG}.gold.{dbutils.widgets.get('reorder_table')}"
+SPIRIT_KEY     = "bourbon"   # matches the `spirit` column on the buy list
 DRY_RUN        = dbutils.widgets.get("dry_run") == "true"
 
 print(f"env={ENV} total_bottles={TOTAL_BOTTLES} table={BRONZE_TABLE} naming={NAMING} "
@@ -83,22 +88,20 @@ def band_index(mult):
 
 def classify(retail_value):
     """Return (eligible_tiers, primary_tier, primary_band) for a retail value.
-    eligible_tiers = list of (tier, multiple, band_idx)."""
-    elig = []
-    for t, price in TIER_PRICE.items():
-        mult = retail_value / price
-        b = band_index(mult)
-        if b is not None:
-            elig.append((int(t), round(float(mult), 4), int(b)))
+    eligible_tiers = list of (tier, multiple, band_idx).
+
+    Delegates to `eligible_tiers()` in 00_celr_odds_config rather than looping
+    TIER_PRICE directly, so it respects SELLABLE_TIERS. Generating stock aimed at
+    tier 5 ($250) would be wasted money: the app does not sell that tier, and the
+    floor builder will not place a bottle into it."""
+    elig = [(int(t), round(float(m), 4), int(b)) for (t, m, b) in eligible_tiers(retail_value)]
     if not elig:
         return [], None, None
-    primary = min(elig, key=lambda e: abs(e[1] - 1.0))
+    primary = elig[0]   # eligible_tiers() is already sorted closest-to-par
     return elig, primary[0], primary[2]
 
-def target_count(band):
-    return round(PROBS[band] * PER_TIER_SHAPE)
-
-targets = {(t, b): target_count(b) for t in TIER_PRICE for b in range(len(BANDS))}
+targets = {(t, b): target_cell_count(b, PER_TIER_SHAPE)
+           for t in SELLABLE_TIERS for b in range(len(BANDS))}
 
 # COMMAND ----------
 
@@ -114,19 +117,37 @@ from pyspark.sql import functions as F
 
 have = {}
 try:
-    existing = spark.table(BRONZE_TABLE).select("retail_value").collect()
+    existing_df = spark.table(BRONZE_TABLE)
+
+    # Only UNSPENT bottles count as coverage. `ever_placed` is the sticky ledger
+    # written back to bronze by `04_sync_collection_from_unicorn.py` Part 2: a
+    # bottle carrying it has already been on the app and can never be placed again,
+    # so counting it here would make the generator think a cell is stocked when the
+    # reserve pool behind it is actually empty.
+    if "ever_placed" in existing_df.columns:
+        n_all = existing_df.count()
+        existing_df = existing_df.where(~F.coalesce(F.col("ever_placed"), F.lit(False)))
+        n_spent = n_all - existing_df.count()
+        if n_spent:
+            print(f"ignoring {n_spent} already-used bottles (ever_placed) when measuring coverage")
+    else:
+        print("[warn] bronze has no ever_placed column — treating every existing row as "
+              "unspent stock. Run 04_sync_collection_from_unicorn.py Part 2 first or this "
+              "run will under-generate.")
+
+    existing = existing_df.select("retail_value").collect()
     for r in existing:
         elig, _p, _b = classify(float(r["retail_value"]))
         for (t, _m, b) in elig:
             have[(t, b)] = have.get((t, b), 0) + 1
-    print(f"existing bottles ({len(existing)}) contribute coverage to {len(have)} cells")
+    print(f"existing unspent bottles ({len(existing)}) contribute coverage to {len(have)} cells")
 except Exception as e:
     print(f"(table not readable / empty: {e}); assuming zero coverage")
 
 need = {}
 total = 0
 print("\ntier band  target  have  need")
-for t in TIER_PRICE:
+for t in SELLABLE_TIERS:
     for b in range(len(BANDS)):
         tg = targets[(t, b)]
         hv = have.get((t, b), 0)
@@ -139,6 +160,55 @@ print(f"\nremaining cell-coverage to fill: {total} (across a {TOTAL_BOTTLES}-bot
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC ### Restock mode — generate exactly what the reorder alert asked for
+# MAGIC With `restock_from_reorder=true` the cell-by-cell demand above is replaced by
+# MAGIC `gold.reorder_recommendations`, the buy list published by
+# MAGIC `06_inventory_reorder_alert.py`. Use this to top the reserve pool back up
+# MAGIC after bottles have been shipped out, instead of re-deriving a whole floor's
+# MAGIC worth of demand.
+# MAGIC
+# MAGIC Restock always **appends**. An overwrite would delete the bronze rows that
+# MAGIC carry the `ever_placed` ledger, which is the only record of which physical
+# MAGIC bottles have already been shown on the app — losing it would put every spent
+# MAGIC bottle back into circulation.
+
+# COMMAND ----------
+
+if RESTOCK_FROM_REORDER:
+    if WRITE_MODE != "append":
+        raise ValueError(
+            "restock_from_reorder=true requires write_mode=append. Overwriting bronze "
+            "would destroy the ever_placed ledger and allow already-shipped bottles to "
+            "be placed on the app a second time."
+        )
+    try:
+        recs = spark.table(REORDER_TBL)
+        if SPIRIT_KEY:
+            recs = recs.where(F.col("spirit") == SPIRIT_KEY)
+        rows_r = recs.select("tier", "band_idx", "bottles_to_buy").collect()
+    except Exception as e:
+        raise ValueError(
+            f"restock_from_reorder=true but {REORDER_TBL} is not readable ({e}). "
+            f"Run 06_inventory_reorder_alert.py first."
+        )
+    if not rows_r:
+        print(f"{REORDER_TBL} has nothing to buy for {SPIRIT_KEY or 'any spirit'} — "
+              f"nothing to generate. Stopping.")
+        dbutils.notebook.exit("no restock needed")
+
+    need = {(int(r["tier"]), int(r["band_idx"])): int(r["bottles_to_buy"]) for r in rows_r}
+    total = sum(need.values())
+    print(f"\nRESTOCK MODE — demand taken from {REORDER_TBL}:")
+    for (t, b), n in sorted(need.items(), key=lambda kv: -kv[1]):
+        print(f"  tier {t} band {b} ({band_label(t, b):>14}): buy {n}")
+    print(f"total cell-coverage to fill: {total}")
+    if total > TOTAL_BOTTLES:
+        print(f"[warn] the buy list wants {total} but total_bottles is {TOTAL_BOTTLES} — "
+              f"raise the budget or this run only covers part of it.")
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC ## 3. LLM text generation (names + descriptions only; we assign price)
 
 # COMMAND ----------
@@ -147,7 +217,20 @@ import json, uuid, random, re
 from mlflow.deployments import get_deploy_client
 
 client = get_deploy_client("databricks")
-RARITY_BY_BAND = {0: "common", 1: "common", 2: "common", 3: "rare", 4: "rare", 5: "legendary"}
+# Derived from the band's position on the curve rather than a fixed dict, so
+# re-cutting ODDS_CURVE can't leave a band without a rarity (the 7-band split added
+# a band 6 that the old hardcoded 0-5 map would have KeyError'd on). Bottles at or
+# below ~1.6x par are shelf stock; the thin tail bands are where the grails live.
+def rarity_for_band(band_idx):
+    lo = ODDS_CURVE[band_idx][0]
+    if lo >= 8.0:
+        return "legendary"
+    if lo >= 1.60:
+        return "rare"
+    return "common"
+
+RARITY_BY_BAND = {b: rarity_for_band(b) for b in range(len(ODDS_CURVE))}
+print("rarity by band:", RARITY_BY_BAND)
 
 def text_prompt(n, lo_d, hi_d):
     if NAMING == "real_commodity":

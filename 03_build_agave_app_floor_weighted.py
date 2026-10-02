@@ -49,6 +49,8 @@
 
 # COMMAND ----------
 
+import uuid
+
 from pyspark.sql import functions as F
 from pyspark.sql.types import IntegerType
 
@@ -59,30 +61,82 @@ BOTTLES_EXPECTED = 1000          # sanity check only — the real count comes fr
 DRY_RUN = True                    # report only; set False to write
 WRITE_MODE = "overwrite"          # overwrite = full floor rebuild (replaces all rows)
 FILL_GAP_PLACEHOLDERS = True      # inject a single flagged row for any empty (tier, band) cell
+# True  = bottles currently on the floor stay eligible, so a rebuild keeps them and
+#         only reaches into the reserve pool for the gaps. Use this to re-shape an
+#         existing live floor after an odds change.
+# False = build a completely fresh floor out of never-placed stock only. Use this
+#         for a brand-new shipment, never against a live floor.
+KEEP_BOTTLES_ALREADY_ON_FLOOR = True
 
 # Odds targets, band index -> probability. Must match ODDS_CURVE in 00_celr_odds_config.
 TARGET_PROBS = [p for (_lo, _hi, p) in ODDS_CURVE]
-TIERS = sorted(TIER_PRICE)
+# Only tiers the app actually sells get placements. Tier 5 ($250) is priced in
+# TIER_PRICE but not purchasable, so placing bottles in it would burn a slot that
+# the app-side sync then drops. See SELLABLE_TIERS in 00_celr_odds_config.
+TIERS = sorted(SELLABLE_TIERS)
 BANDS = list(range(len(TARGET_PROBS)))
 SLOT_NAMES = ["primary", "secondary", "tertiary", "quaternary", "quinary"]   # closest-to-par first
+
+# How many slot columns `celr/src/lib/weighted-sync.server.ts` actually SELECTs
+# when it pulls this table into Supabase. Anything beyond this is written here and
+# then silently discarded on sync — the bottle keeps its warehouse placement but
+# loses the odds contribution in the live app. Slots are ordered closest-to-par,
+# NOT by tier number, so an overflowing slot is a random real tier, not tier 5.
+APP_SYNC_SLOTS = 4
 assert len(SLOT_NAMES) >= len(TIERS), f"need >= 1 slot per possible tier (there are {len(TIERS)} tiers)"
+assert len(TIERS) <= APP_SYNC_SLOTS, (
+    f"{len(TIERS)} sellable tiers but the app sync only reads {APP_SYNC_SLOTS} slot columns — "
+    f"placements past slot {APP_SYNC_SLOTS} would be dropped and the live odds would "
+    f"diverge from this build. Add the extra slot to bourbons_weighted/agave_weighted in "
+    f"Supabase, merge_weighted_catalog, weighted_tier_catalog and weighted-sync.server.ts "
+    f"before widening SELLABLE_TIERS."
+)
 # =============================================================================
 
 cat = spark.table(SOURCE_TABLE)
 
-# Exclude bottles 04_sync_collection_from_unicorn.py flagged 'retired' (shipped or
-# stored — physically gone from available inventory). Safe if the column doesn't
-# exist yet (older gold snapshot, or that notebook hasn't been run): everything is
-# treated as available. NULL also means available (never yet flagged).
+# Never re-use a bottle. Two filters, both written by
+# `04_sync_collection_from_unicorn.py` Part 2:
+#
+#   app_status == 'retired'  -> shipped or stored; physically gone from the building.
+#   ever_placed == true      -> has been on an app floor at least once, ever.
+#
+# The second is the one that matters for a rebuild. `app_status` is recomputed from
+# live state on every run, so a bottle that left the floor without being ripped
+# reads as 'available' again and would be re-placed. `ever_placed` is sticky and
+# never cleared, so the reserve pool only ever shrinks.
+#
+# Bottles currently on the floor are `ever_placed` too, so a full rebuild with this
+# filter produces an entirely NEW floor from the reserve pool rather than keeping
+# the existing one. That is intentional for a fresh shipment, but it is not how you
+# top up a floor day to day — use `05_replenish_floor.py`, which preserves the
+# existing rows and only fills what left.
 if "app_status" in cat.columns:
-    n_before_retired_filter = cat.count()
+    n_before = cat.count()
     cat = cat.where((F.col("app_status").isNull()) | (F.col("app_status") != "retired"))
-    n_retired = n_before_retired_filter - cat.count()
+    n_retired = n_before - cat.count()
     if n_retired:
         print(f"Excluded {n_retired} retired bottles (shipped/stored) from this floor build.")
 else:
     print("[info] app_status column not present on the source catalog yet — "
           "run 04_sync_collection_from_unicorn.py's Part 2 to enable retired-bottle exclusion.")
+
+if "ever_placed" in cat.columns:
+    n_before = cat.count()
+    if KEEP_BOTTLES_ALREADY_ON_FLOOR:
+        cat = cat.where(~F.coalesce(F.col("ever_placed"), F.lit(False))
+                        | (F.col("app_status") == "in_app"))
+    else:
+        cat = cat.where(~F.coalesce(F.col("ever_placed"), F.lit(False)))
+    n_used = n_before - cat.count()
+    if n_used:
+        print(f"Excluded {n_used} already-used bottles (ever_placed) — these have been on "
+              f"the app before and must not be shown again.")
+    print(f"Reserve pool available to this build: {cat.count()} never-placed bottles.")
+else:
+    print("[warn] ever_placed column not present on the source catalog — this build CANNOT "
+          "guarantee it won't re-use a bottle that has already appeared on the app. "
+          "Run 04_sync_collection_from_unicorn.py's Part 2 first.")
 
 n_bottles = cat.count()
 print(f"Source catalog: {n_bottles} physical bottles (expected ~{BOTTLES_EXPECTED}).")
@@ -113,6 +167,18 @@ placements = (cat
         F.col("et.band_idx").cast("int").alias("band_idx"),
     )
     .where(F.col("slot_idx") < len(SLOT_NAMES)))
+
+# Guard the sync boundary. `eligible_tiers()` only returns SELLABLE_TIERS, so with
+# four of them nothing can reach slot 4 (quinary) — but assert it rather than trust
+# it, because a silent overflow here shows up as live odds that quietly disagree
+# with this build's verification output and nothing else.
+n_overflow = placements.where(F.col("slot_idx") >= APP_SYNC_SLOTS).count()
+assert n_overflow == 0, (
+    f"{n_overflow} placements landed in slot {APP_SYNC_SLOTS} or beyond. "
+    f"weighted-sync.server.ts reads only the first {APP_SYNC_SLOTS} slots, so these "
+    f"would be dropped on sync and the affected tiers would under-fill. "
+    f"Check SELLABLE_TIERS in 00_celr_odds_config."
+)
 
 # COMMAND ----------
 
@@ -175,7 +241,10 @@ for t, b in missing_cells:
     mid_value = round((lo + hi) / 2 * price) if hi != float("inf") else round(lo * price * 1.5)
     w = weight_for_band(b, 1)
     placeholder_rows.append((
-        f"ph-{t}-{b}", label, "PLACEHOLDER",
+        # Deterministic uuid5 rather than "ph-1-2": the Supabase column is `uuid`,
+        # so a non-uuid literal fails the sync insert. Deterministic so the same
+        # gap keeps the same id across rebuilds.
+        str(uuid.uuid5(uuid.NAMESPACE_URL, f"celr:floor-placeholder:{t}:{b}")), label, "PLACEHOLDER",
         "Reserve gap. Do not open this tier to real pulls until replaced.",
         "placeholder", float(mid_value), "",
         t, b, w,      # primary_*
@@ -258,7 +327,16 @@ print(f"{n_placements} total (bottle, tier) placements across those rows "
 # COMMAND ----------
 
 floor = floor_pre.select(
-    F.expr("uuid()").alias("id"),
+    # The floor row's id IS the physical bottle's gold bottle_serial — not a fresh
+    # uuid. Everything that tracks a bottle across systems keys on this: `rips.
+    # bourbon_id` / `rips.agave_id` store it, `retired_bottles.bottle_id` stores it,
+    # and `04_sync_collection_from_unicorn.py` joins it back to
+    # `gold.*_catalog.bottle_serial` to decide app_status. Generating a new uuid here
+    # broke every one of those joins — app_status could never resolve to 'in_app' or
+    # 'retired', so the never-re-use ledger silently matched nothing.
+    # bottle_serial is already a uuid4 (see mock_data_generator), which satisfies the
+    # `id uuid` column type on the Supabase side.
+    F.col("bottle_serial").cast("string").alias("id"),
     "name", "distillery", "description", "rarity",
     F.round("retail_value").cast("bigint").alias("retail_value"),
     "image_url",
@@ -288,6 +366,27 @@ if DRY_RUN:
 else:
     (floor.write.mode(WRITE_MODE).saveAsTable(TARGET_TABLE))
     print(f"Wrote {n} rows to {TARGET_TABLE} (mode={WRITE_MODE}).")
+
+    # Spend the bottles in the ledger immediately. Waiting for
+    # `04_sync_collection_from_unicorn.py` to notice them leaves a window in which
+    # another build — or `05_replenish_floor.py` — could hand the same physical
+    # bottle to a second floor. `ever_placed` is OR-ed, never cleared.
+    from delta.tables import DeltaTable
+    placed_serials = real_rows.select("bottle_serial").distinct()
+    try:
+        (DeltaTable.forName(spark, SOURCE_TABLE).alias("t")
+            .merge(placed_serials.alias("s"), "t.bottle_serial = s.bottle_serial")
+            .whenMatchedUpdate(set={
+                "app_status": "'in_app'",
+                "ever_placed": "true",
+                "first_placed_at": "COALESCE(t.first_placed_at, current_timestamp())",
+            })
+            .execute())
+        print(f"Marked {placed_serials.count()} bottles as in_app / ever_placed in {SOURCE_TABLE}.")
+    except Exception as e:
+        print(f"!! Could not mark bottles as placed in {SOURCE_TABLE}: {e}\n"
+              f"   Run 04_sync_collection_from_unicorn.py Part 2 to repair the ledger "
+              f"BEFORE any other floor build or replenishment run, or bottles may be re-used.")
 
 # COMMAND ----------
 
