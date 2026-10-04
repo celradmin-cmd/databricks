@@ -323,8 +323,27 @@ def find_departures(spirit):
 # COMMAND ----------
 
 @F.udf(returnType=IntegerType())
-def udf_weight(band_idx, n):
-    return weight_for_band(band_idx, n)
+def udf_weight(tier, band_idx, n):
+    """Weight for one slot, or NULL for a slot the bottle doesn't use.
+
+    The unused-slot case is handled *here*, not by the surrounding `F.when()`:
+    Spark extracts Python UDFs into their own evaluation step that runs before
+    the CASE WHEN, so the UDF is called for every row including the ones the
+    condition would have filtered out. Most floor rows leave the later slots
+    empty, so `band_idx`/`n` arrive as None constantly and `weight_for_band()`
+    raised `TypeError: '<=' not supported between NoneType and int`.
+
+    A placed slot with no matching count row is a real inconsistency — the
+    counts come from this same floor — so that case raises rather than quietly
+    writing a NULL weight and taking the cell's odds to zero."""
+    if tier is None:
+        return None
+    if band_idx is None or n is None:
+        raise ValueError(
+            f"floor row placed in tier {tier} has band={band_idx}, cell count={n} — "
+            "a placement with no band never matches its cell and loses its odds"
+        )
+    return weight_for_band(int(band_idx), int(n))
 
 
 def reweight_floor(floor_table):
@@ -348,8 +367,9 @@ def reweight_floor(floor_table):
                     "left")
                   .withColumn(
                       f"{name}_weight",
-                      F.when(F.col(f"{name}_tier").isNull(), F.lit(None).cast("int"))
-                       .otherwise(udf_weight(F.col(f"{name}_band"), F.col(f"_{name}_n"))))
+                      udf_weight(F.col(f"{name}_tier"),
+                                 F.col(f"{name}_band"),
+                                 F.col(f"_{name}_n")))
                   .drop(f"_{name}_t", f"_{name}_b", f"_{name}_n"))
 
     if DRY_RUN:
