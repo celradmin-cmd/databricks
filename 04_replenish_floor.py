@@ -128,7 +128,6 @@ print(f"catalog={CATALOG} spirits={TARGETS} floor_depth_per_tier={FLOOR_DEPTH} d
 
 from delta.tables import DeltaTable
 from pyspark.sql import functions as F
-from pyspark.sql.types import IntegerType
 
 spark.sql(f"""
     CREATE TABLE IF NOT EXISTS {LOG_TBL} (
@@ -322,28 +321,34 @@ def find_departures(spirit):
 
 # COMMAND ----------
 
-@F.udf(returnType=IntegerType())
-def udf_weight(tier, band_idx, n):
+def weight_expr(tier, band_idx, n):
     """Weight for one slot, or NULL for a slot the bottle doesn't use.
 
-    The unused-slot case is handled *here*, not by the surrounding `F.when()`:
-    Spark extracts Python UDFs into their own evaluation step that runs before
-    the CASE WHEN, so the UDF is called for every row including the ones the
-    condition would have filtered out. Most floor rows leave the later slots
-    empty, so `band_idx`/`n` arrive as None constantly and `weight_for_band()`
-    raised `TypeError: '<=' not supported between NoneType and int`.
+    Native Spark expression, not a Python UDF: a UDF on this column started a
+    Python worker per task, and on the shared cluster that worker handshake
+    timed out (`TimeoutError: timed out` at `out.count()`). The math is
+    `weight_for_band()` from `00_celr_odds_config`, inlined: the band's budget
+    `target_prob * WEIGHT_SCALE` split over `n`, rounded half-to-even like
+    Python's `round()`.
 
-    A placed slot with no matching count row is a real inconsistency — the
-    counts come from this same floor — so that case raises rather than quietly
-    writing a NULL weight and taking the cell's odds to zero."""
-    if tier is None:
-        return None
-    if band_idx is None or n is None:
-        raise ValueError(
-            f"floor row placed in tier {tier} has band={band_idx}, cell count={n} — "
-            "a placement with no band never matches its cell and loses its odds"
-        )
-    return weight_for_band(int(band_idx), int(n))
+    A placed slot with no band, no matching count row, or a band outside
+    `ODDS_CURVE` is a real inconsistency — the counts come from this same
+    floor — so it fails the job rather than quietly writing a NULL weight and
+    taking the cell's odds to zero."""
+    budget = None
+    for i, (_lo, _hi, p) in enumerate(ODDS_CURVE):
+        budget = (F.when(band_idx == i, F.lit(p * WEIGHT_SCALE)) if budget is None
+                  else budget.when(band_idx == i, F.lit(p * WEIGHT_SCALE)))
+    return (F.when(tier.isNull(), F.lit(None).cast("int"))
+             .when(band_idx.isNull() | n.isNull() | budget.isNull(),
+                   F.raise_error(F.concat(
+                       F.lit("floor row placed in tier "), tier.cast("string"),
+                       F.lit(" has band="), F.coalesce(band_idx.cast("string"), F.lit("None")),
+                       F.lit(", cell count="), F.coalesce(n.cast("string"), F.lit("None")),
+                       F.lit(" — a placement with no valid band never matches its cell "
+                             "and loses its odds"))))
+             .when(n <= 0, F.lit(0))
+             .otherwise(F.bround(budget / n).cast("int")))
 
 
 def reweight_floor(floor_table):
@@ -367,9 +372,9 @@ def reweight_floor(floor_table):
                     "left")
                   .withColumn(
                       f"{name}_weight",
-                      udf_weight(F.col(f"{name}_tier"),
-                                 F.col(f"{name}_band"),
-                                 F.col(f"_{name}_n")))
+                      weight_expr(F.col(f"{name}_tier"),
+                                  F.col(f"{name}_band"),
+                                  F.col(f"_{name}_n")))
                   .drop(f"_{name}_t", f"_{name}_b", f"_{name}_n"))
 
     if DRY_RUN:
