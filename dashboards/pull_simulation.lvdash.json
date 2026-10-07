@@ -4,7 +4,7 @@
       "name": "ds_kpi",
       "displayName": "Tier KPIs",
       "queryLines": [
-        "SELECT spirit, tier, ROUND(pull_price, 0) AS pull_price, source, n_sessions, total_pulls,\n       ROUND(total_spent, 0) AS total_spent, ROUND(total_retail_won, 0) AS total_retail_won,\n       ROUND(net_profit_loss, 0) AS net_profit_loss,\n       ROUND(avg_net_dollars_per_pull, 0) AS avg_net_dollars_per_pull,\n       ROUND(simulated_win_rate * 100, 1) AS simulated_win_rate,\n       ROUND(target_win_rate * 100, 1) AS target_win_rate,\n       ROUND(simulated_payout_multiple, 3) AS simulated_payout_multiple,\n       ROUND(target_payout_multiple, 3) AS target_payout_multiple,\n       avg_losses_before_win, median_losses_before_win, p90_losses_before_win,\n       max_losses_before_win, ROUND(median_session_net, 0) AS median_session_net,\n       ROUND(worst_session_net, 0) AS worst_session_net,\n       ROUND(best_session_net, 0) AS best_session_net,\n       computed_at\nFROM prod_celr.gold.pull_simulation_tier_kpi\nORDER BY spirit, tier"
+        "SELECT spirit, tier, pull_price, source, n_sessions, total_pulls,\n       total_spent, total_retail_won, net_profit_loss, avg_net_dollars_per_pull,\n       simulated_win_rate, target_win_rate,\n       simulated_payout_multiple, target_payout_multiple,\n       avg_losses_before_win, median_losses_before_win, p90_losses_before_win,\n       max_losses_before_win, median_session_net, worst_session_net, best_session_net,\n       computed_at\nFROM prod_celr.gold.pull_simulation_tier_kpi\nORDER BY spirit, tier"
       ]
     },
     {
@@ -39,35 +39,63 @@
       "name": "ds_walk_t1",
       "displayName": "Tier 1 ($50 pull) \u2014 example session, pull by pull",
       "queryLines": [
-        "SELECT pull_number, bottle_label, ROUND(retail_value, 0) AS retail_value,\n       ROUND(pull_price, 0) AS pull_price, ROUND(net_dollars, 0) AS net_dollars,\n       is_win, is_placeholder, ROUND(cumulative_net, 0) AS cumulative_net,\n       losses_before_this_pull\nFROM prod_celr.gold.pull_simulation_pulls\nWHERE spirit = 'bourbon' AND tier = 1\nORDER BY pull_number"
+        "SELECT pull_number, bottle_label, retail_value, pull_price, net_dollars,\n       is_win, is_placeholder, cumulative_net, losses_before_this_pull\nFROM prod_celr.gold.pull_simulation_pulls\nWHERE spirit = 'bourbon' AND tier = 1\nORDER BY pull_number"
       ]
     },
     {
       "name": "ds_walk_t2",
       "displayName": "Tier 2 ($100 pull) \u2014 example session, pull by pull",
       "queryLines": [
-        "SELECT pull_number, bottle_label, ROUND(retail_value, 0) AS retail_value,\n       ROUND(pull_price, 0) AS pull_price, ROUND(net_dollars, 0) AS net_dollars,\n       is_win, is_placeholder, ROUND(cumulative_net, 0) AS cumulative_net,\n       losses_before_this_pull\nFROM prod_celr.gold.pull_simulation_pulls\nWHERE spirit = 'bourbon' AND tier = 2\nORDER BY pull_number"
+        "SELECT pull_number, bottle_label, retail_value, pull_price, net_dollars,\n       is_win, is_placeholder, cumulative_net, losses_before_this_pull\nFROM prod_celr.gold.pull_simulation_pulls\nWHERE spirit = 'bourbon' AND tier = 2\nORDER BY pull_number"
       ]
     },
     {
       "name": "ds_walk_t3",
       "displayName": "Tier 3 ($500 pull) \u2014 example session, pull by pull",
       "queryLines": [
-        "SELECT pull_number, bottle_label, ROUND(retail_value, 0) AS retail_value,\n       ROUND(pull_price, 0) AS pull_price, ROUND(net_dollars, 0) AS net_dollars,\n       is_win, is_placeholder, ROUND(cumulative_net, 0) AS cumulative_net,\n       losses_before_this_pull\nFROM prod_celr.gold.pull_simulation_pulls\nWHERE spirit = 'bourbon' AND tier = 3\nORDER BY pull_number"
+        "SELECT pull_number, bottle_label, retail_value, pull_price, net_dollars,\n       is_win, is_placeholder, cumulative_net, losses_before_this_pull\nFROM prod_celr.gold.pull_simulation_pulls\nWHERE spirit = 'bourbon' AND tier = 3\nORDER BY pull_number"
       ]
     },
     {
       "name": "ds_walk_t4",
       "displayName": "Tier 4 ($1000 pull) \u2014 example session, pull by pull",
       "queryLines": [
-        "SELECT pull_number, bottle_label, ROUND(retail_value, 0) AS retail_value,\n       ROUND(pull_price, 0) AS pull_price, ROUND(net_dollars, 0) AS net_dollars,\n       is_win, is_placeholder, ROUND(cumulative_net, 0) AS cumulative_net,\n       losses_before_this_pull\nFROM prod_celr.gold.pull_simulation_pulls\nWHERE spirit = 'bourbon' AND tier = 4\nORDER BY pull_number"
+        "SELECT pull_number, bottle_label, retail_value, pull_price, net_dollars,\n       is_win, is_placeholder, cumulative_net, losses_before_this_pull\nFROM prod_celr.gold.pull_simulation_pulls\nWHERE spirit = 'bourbon' AND tier = 4\nORDER BY pull_number"
       ]
     },
     {
       "name": "ds_walk_t5",
       "displayName": "Tier 5 ($250 pull) \u2014 example session, pull by pull",
       "queryLines": [
-        "SELECT pull_number, bottle_label, ROUND(retail_value, 0) AS retail_value,\n       ROUND(pull_price, 0) AS pull_price, ROUND(net_dollars, 0) AS net_dollars,\n       is_win, is_placeholder, ROUND(cumulative_net, 0) AS cumulative_net,\n       losses_before_this_pull\nFROM prod_celr.gold.pull_simulation_pulls\nWHERE spirit = 'bourbon' AND tier = 5\nORDER BY pull_number"
+        "SELECT pull_number, bottle_label, retail_value, pull_price, net_dollars,\n       is_win, is_placeholder, cumulative_net, losses_before_this_pull\nFROM prod_celr.gold.pull_simulation_pulls\nWHERE spirit = 'bourbon' AND tier = 5\nORDER BY pull_number"
+      ]
+    },
+    {
+      "name": "ds_profit_tier",
+      "displayName": "House profit by tier",
+      "queryLines": [
+        "SELECT k.spirit, k.tier, concat(k.spirit, ' t', k.tier) AS series, k.pull_price,\n       k.total_pulls, k.total_spent AS revenue, k.total_retail_won AS bottle_cost,\n       k.total_spent - k.total_retail_won AS house_profit,\n       (k.total_spent - k.total_retail_won) / k.total_spent AS house_margin,\n       (k.total_spent - k.total_retail_won) / k.total_pulls AS house_profit_per_pull,\n       -k.median_session_net AS median_session_profit,\n       -k.best_session_net AS worst_session_profit,\n       s.pct_sessions_house_lost\nFROM prod_celr.gold.pull_simulation_tier_kpi k\nLEFT JOIN (\n  SELECT spirit, tier, AVG(CASE WHEN net_profit_loss > 0 THEN 1.0 ELSE 0.0 END) AS pct_sessions_house_lost\n  FROM prod_celr.gold.pull_simulation_sessions GROUP BY spirit, tier\n) s ON s.spirit = k.spirit AND s.tier = k.tier\nORDER BY k.spirit, k.tier"
+      ]
+    },
+    {
+      "name": "ds_profit_totals",
+      "displayName": "House profit totals",
+      "queryLines": [
+        "SELECT ROUND(SUM(total_spent), 0) AS total_revenue,\n       ROUND(SUM(total_spent - total_retail_won), 0) AS total_house_profit,\n       ROUND(100 * SUM(total_spent - total_retail_won) / SUM(total_spent), 1) AS house_margin_pct\nFROM prod_celr.gold.pull_simulation_tier_kpi"
+      ]
+    },
+    {
+      "name": "ds_profit_long",
+      "displayName": "Revenue vs. bottle cost (long form)",
+      "queryLines": [
+        "SELECT concat(spirit, ' t', tier) AS series, 'Revenue (pulls sold)' AS metric, total_spent AS dollars\nFROM prod_celr.gold.pull_simulation_tier_kpi\nUNION ALL\nSELECT concat(spirit, ' t', tier), 'Bottle cost (retail given out)', total_retail_won\nFROM prod_celr.gold.pull_simulation_tier_kpi\nORDER BY 1, 2"
+      ]
+    },
+    {
+      "name": "ds_session_profit",
+      "displayName": "House profit per session",
+      "queryLines": [
+        "SELECT concat(spirit, ' t', tier) AS series, -net_profit_loss AS house_profit\nFROM prod_celr.gold.pull_simulation_sessions"
       ]
     }
   ],
@@ -296,96 +324,581 @@
               }
             ],
             "spec": {
-              "version": 3,
+              "version": 1,
               "widgetType": "table",
               "encodings": {
                 "columns": [
                   {
                     "fieldName": "spirit",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100000,
+                    "title": "Spirit",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
                     "displayName": "Spirit"
                   },
                   {
                     "fieldName": "tier",
-                    "displayName": "Tier"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "integer",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100001,
+                    "title": "Tier",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Tier",
+                    "numberFormat": "0,0"
                   },
                   {
                     "fieldName": "pull_price",
-                    "displayName": "Pull price"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100002,
+                    "title": "Pull price",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Pull price",
+                    "numberFormat": "$0,0"
                   },
                   {
                     "fieldName": "n_sessions",
-                    "displayName": "Sessions sim."
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "integer",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100003,
+                    "title": "Sessions sim.",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Sessions sim.",
+                    "numberFormat": "0,0"
                   },
                   {
                     "fieldName": "total_pulls",
-                    "displayName": "Total pulls"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "integer",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100004,
+                    "title": "Total pulls",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Total pulls",
+                    "numberFormat": "0,0"
                   },
                   {
                     "fieldName": "simulated_win_rate",
-                    "displayName": "Win rate % (sim)"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100005,
+                    "title": "Win rate (sim)",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Win rate (sim)",
+                    "numberFormat": "0.0%"
                   },
                   {
                     "fieldName": "target_win_rate",
-                    "displayName": "Win rate % (target)"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100006,
+                    "title": "Win rate (target)",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Win rate (target)",
+                    "numberFormat": "0.0%"
                   },
                   {
                     "fieldName": "simulated_payout_multiple",
-                    "displayName": "Payout x (sim)"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100007,
+                    "title": "Payout x (sim)",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Payout x (sim)",
+                    "numberFormat": "0.000"
                   },
                   {
                     "fieldName": "target_payout_multiple",
-                    "displayName": "Payout x (target)"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100008,
+                    "title": "Payout x (target)",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Payout x (target)",
+                    "numberFormat": "0.000"
                   },
                   {
                     "fieldName": "avg_losses_before_win",
-                    "displayName": "Avg losses before a win"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100009,
+                    "title": "Avg losses before a win",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Avg losses before a win",
+                    "numberFormat": "0,0.0"
                   },
                   {
                     "fieldName": "median_losses_before_win",
-                    "displayName": "Median losses before a win"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100010,
+                    "title": "Median losses before a win",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Median losses before a win",
+                    "numberFormat": "0,0.0"
                   },
                   {
                     "fieldName": "p90_losses_before_win",
-                    "displayName": "P90 losses before a win"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100011,
+                    "title": "P90 losses before a win",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "P90 losses before a win",
+                    "numberFormat": "0,0.0"
                   },
                   {
                     "fieldName": "max_losses_before_win",
-                    "displayName": "Worst losing streak"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "integer",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100012,
+                    "title": "Worst losing streak",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Worst losing streak",
+                    "numberFormat": "0,0"
                   },
                   {
                     "fieldName": "avg_net_dollars_per_pull",
-                    "displayName": "Avg $ net / pull"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100013,
+                    "title": "Avg $ net / pull",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Avg $ net / pull",
+                    "numberFormat": "$0,0"
                   },
                   {
                     "fieldName": "median_session_net",
-                    "displayName": "Median session net ($)"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100014,
+                    "title": "Median session net ($)",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Median session net ($)",
+                    "numberFormat": "$0,0"
                   },
                   {
                     "fieldName": "worst_session_net",
-                    "displayName": "Worst 100-pull session ($)"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100015,
+                    "title": "Worst 100-pull session ($)",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Worst 100-pull session ($)",
+                    "numberFormat": "$0,0"
                   },
                   {
                     "fieldName": "best_session_net",
-                    "displayName": "Best 100-pull session ($)"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100016,
+                    "title": "Best 100-pull session ($)",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Best 100-pull session ($)",
+                    "numberFormat": "$0,0"
                   },
                   {
                     "fieldName": "net_profit_loss",
-                    "displayName": "Net across all sessions ($)"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100017,
+                    "title": "Net across all sessions ($)",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Net across all sessions ($)",
+                    "numberFormat": "$0,0"
                   },
                   {
                     "fieldName": "total_spent",
-                    "displayName": "Total spent ($)"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100018,
+                    "title": "Total spent ($)",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Total spent ($)",
+                    "numberFormat": "$0,0"
                   },
                   {
                     "fieldName": "total_retail_won",
-                    "displayName": "Total retail won ($)"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100019,
+                    "title": "Total retail won ($)",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Total retail won ($)",
+                    "numberFormat": "$0,0"
                   }
                 ]
               },
               "frame": {
                 "title": "Win / lose by tier \u2014 the core table",
                 "showTitle": true
-              }
+              },
+              "invisibleColumns": [],
+              "allowHTMLByDefault": false,
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "condensed": true,
+              "withRowNumber": false
             }
           },
           "position": {
@@ -589,6 +1102,807 @@
       ]
     },
     {
+      "name": "page_profits",
+      "displayName": "Profits \u2014 the house view",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1",
+      "layout": [
+        {
+          "widget": {
+            "name": "c_revenue",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_profit_totals",
+                  "fields": [
+                    {
+                      "name": "total_revenue",
+                      "expression": "`total_revenue`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "total_revenue",
+                  "displayName": "Total pull revenue ($)"
+                }
+              },
+              "frame": {
+                "title": "Total pull revenue ($)",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "c_house_profit",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_profit_totals",
+                  "fields": [
+                    {
+                      "name": "total_house_profit",
+                      "expression": "`total_house_profit`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "total_house_profit",
+                  "displayName": "Total house profit ($)"
+                }
+              },
+              "frame": {
+                "title": "Total house profit ($)",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 0,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "c_house_margin",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_profit_totals",
+                  "fields": [
+                    {
+                      "name": "house_margin_pct",
+                      "expression": "`house_margin_pct`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "house_margin_pct",
+                  "displayName": "House margin (%)"
+                }
+              },
+              "frame": {
+                "title": "House margin (%)",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 0,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "t_profit",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_profit_tier",
+                  "fields": [
+                    {
+                      "name": "spirit",
+                      "expression": "`spirit`"
+                    },
+                    {
+                      "name": "tier",
+                      "expression": "`tier`"
+                    },
+                    {
+                      "name": "pull_price",
+                      "expression": "`pull_price`"
+                    },
+                    {
+                      "name": "total_pulls",
+                      "expression": "`total_pulls`"
+                    },
+                    {
+                      "name": "revenue",
+                      "expression": "`revenue`"
+                    },
+                    {
+                      "name": "bottle_cost",
+                      "expression": "`bottle_cost`"
+                    },
+                    {
+                      "name": "house_profit",
+                      "expression": "`house_profit`"
+                    },
+                    {
+                      "name": "house_margin",
+                      "expression": "`house_margin`"
+                    },
+                    {
+                      "name": "house_profit_per_pull",
+                      "expression": "`house_profit_per_pull`"
+                    },
+                    {
+                      "name": "median_session_profit",
+                      "expression": "`median_session_profit`"
+                    },
+                    {
+                      "name": "worst_session_profit",
+                      "expression": "`worst_session_profit`"
+                    },
+                    {
+                      "name": "pct_sessions_house_lost",
+                      "expression": "`pct_sessions_house_lost`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "spirit",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100000,
+                    "title": "Spirit",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Spirit"
+                  },
+                  {
+                    "fieldName": "tier",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "integer",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100001,
+                    "title": "Tier",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Tier",
+                    "numberFormat": "0,0"
+                  },
+                  {
+                    "fieldName": "pull_price",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100002,
+                    "title": "Pull price",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Pull price",
+                    "numberFormat": "$0,0"
+                  },
+                  {
+                    "fieldName": "total_pulls",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "integer",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100003,
+                    "title": "Pulls sold",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Pulls sold",
+                    "numberFormat": "0,0"
+                  },
+                  {
+                    "fieldName": "revenue",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100004,
+                    "title": "Revenue ($)",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Revenue ($)",
+                    "numberFormat": "$0,0"
+                  },
+                  {
+                    "fieldName": "bottle_cost",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100005,
+                    "title": "Bottle cost ($)",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Bottle cost ($)",
+                    "numberFormat": "$0,0"
+                  },
+                  {
+                    "fieldName": "house_profit",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100006,
+                    "title": "House profit ($)",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "House profit ($)",
+                    "numberFormat": "$0,0"
+                  },
+                  {
+                    "fieldName": "house_margin",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100007,
+                    "title": "Margin",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Margin",
+                    "numberFormat": "0.0%"
+                  },
+                  {
+                    "fieldName": "house_profit_per_pull",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100008,
+                    "title": "Profit / pull ($)",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Profit / pull ($)",
+                    "numberFormat": "$0,0"
+                  },
+                  {
+                    "fieldName": "median_session_profit",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100009,
+                    "title": "Median session profit ($)",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Median session profit ($)",
+                    "numberFormat": "$0,0"
+                  },
+                  {
+                    "fieldName": "worst_session_profit",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100010,
+                    "title": "Worst session for the house ($)",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Worst session for the house ($)",
+                    "numberFormat": "$0,0"
+                  },
+                  {
+                    "fieldName": "pct_sessions_house_lost",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100011,
+                    "title": "Sessions the house lost",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Sessions the house lost",
+                    "numberFormat": "0.0%"
+                  }
+                ]
+              },
+              "frame": {
+                "title": "House profit by tier",
+                "showTitle": true
+              },
+              "invisibleColumns": [],
+              "allowHTMLByDefault": false,
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "condensed": true,
+              "withRowNumber": false
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 3,
+            "width": 12,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "b_profit_per_pull",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_profit_tier",
+                  "fields": [
+                    {
+                      "name": "series",
+                      "expression": "`series`"
+                    },
+                    {
+                      "name": "house_profit_per_pull",
+                      "expression": "`house_profit_per_pull`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "series",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Spirit / tier"
+                },
+                "y": {
+                  "fieldName": "house_profit_per_pull",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Profit / pull",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "USD",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 0
+                    }
+                  }
+                }
+              },
+              "frame": {
+                "title": "House profit per pull, by tier",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 9,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "b_margin",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_profit_tier",
+                  "fields": [
+                    {
+                      "name": "series",
+                      "expression": "`series`"
+                    },
+                    {
+                      "name": "house_margin",
+                      "expression": "`house_margin`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "series",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Spirit / tier"
+                },
+                "y": {
+                  "fieldName": "house_margin",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Margin",
+                  "format": {
+                    "type": "number-percent",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 1
+                    }
+                  }
+                }
+              },
+              "frame": {
+                "title": "House margin, by tier",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 9,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "b_rev_vs_cost",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_profit_long",
+                  "fields": [
+                    {
+                      "name": "series",
+                      "expression": "`series`"
+                    },
+                    {
+                      "name": "metric",
+                      "expression": "`metric`"
+                    },
+                    {
+                      "name": "dollars",
+                      "expression": "`dollars`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "series",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Spirit / tier"
+                },
+                "y": {
+                  "fieldName": "dollars",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Dollars",
+                  "format": {
+                    "type": "number-currency",
+                    "currencyCode": "USD",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 0
+                    }
+                  }
+                },
+                "color": {
+                  "fieldName": "metric",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Metric"
+                }
+              },
+              "frame": {
+                "title": "Revenue vs. bottle cost, by tier",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 15,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "b_session_profit",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_session_profit",
+                  "fields": [
+                    {
+                      "name": "series",
+                      "expression": "`series`"
+                    },
+                    {
+                      "name": "house_profit",
+                      "expression": "`house_profit`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "house_profit",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Session house profit $"
+                },
+                "y": {
+                  "fieldName": "series",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Spirit / tier"
+                }
+              },
+              "frame": {
+                "title": "House profit variance across simulated sessions",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 15,
+            "width": 6,
+            "height": 7
+          }
+        }
+      ]
+    },
+    {
       "name": "page_walkthrough",
       "displayName": "Walkthrough \u2014 one bourbon session",
       "pageType": "PAGE_TYPE_CANVAS",
@@ -645,52 +1959,271 @@
               }
             ],
             "spec": {
-              "version": 3,
+              "version": 1,
               "widgetType": "table",
               "encodings": {
                 "columns": [
                   {
                     "fieldName": "pull_number",
-                    "displayName": "Pull #"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "integer",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100000,
+                    "title": "Pull #",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Pull #",
+                    "numberFormat": "0,0"
                   },
                   {
                     "fieldName": "bottle_label",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100001,
+                    "title": "Bottle",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
                     "displayName": "Bottle"
                   },
                   {
                     "fieldName": "retail_value",
-                    "displayName": "Retail value"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100002,
+                    "title": "Retail value",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Retail value",
+                    "numberFormat": "$0,0"
                   },
                   {
                     "fieldName": "pull_price",
-                    "displayName": "Paid"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100003,
+                    "title": "Paid",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Paid",
+                    "numberFormat": "$0,0"
                   },
                   {
                     "fieldName": "net_dollars",
-                    "displayName": "Net $"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100004,
+                    "title": "Net $",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Net $",
+                    "numberFormat": "$0,0"
                   },
                   {
                     "fieldName": "is_win",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "boolean",
+                    "displayAs": "boolean",
+                    "visible": true,
+                    "order": 100005,
+                    "title": "Won?",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
                     "displayName": "Won?"
                   },
                   {
                     "fieldName": "is_placeholder",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "boolean",
+                    "displayAs": "boolean",
+                    "visible": true,
+                    "order": 100006,
+                    "title": "Gap placeholder?",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
                     "displayName": "Gap placeholder?"
                   },
                   {
                     "fieldName": "cumulative_net",
-                    "displayName": "Running total $"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100007,
+                    "title": "Running total $",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Running total $",
+                    "numberFormat": "$0,0"
                   },
                   {
                     "fieldName": "losses_before_this_pull",
-                    "displayName": "Losses right before this win"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "integer",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100008,
+                    "title": "Losses right before this win",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Losses right before this win",
+                    "numberFormat": "0,0"
                   }
                 ]
               },
               "frame": {
                 "title": "Tier 1 ($50 pull) \u2014 pull by pull",
                 "showTitle": true
-              }
+              },
+              "invisibleColumns": [],
+              "allowHTMLByDefault": false,
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "condensed": true,
+              "withRowNumber": false
             }
           },
           "position": {
@@ -813,52 +2346,271 @@
               }
             ],
             "spec": {
-              "version": 3,
+              "version": 1,
               "widgetType": "table",
               "encodings": {
                 "columns": [
                   {
                     "fieldName": "pull_number",
-                    "displayName": "Pull #"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "integer",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100000,
+                    "title": "Pull #",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Pull #",
+                    "numberFormat": "0,0"
                   },
                   {
                     "fieldName": "bottle_label",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100001,
+                    "title": "Bottle",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
                     "displayName": "Bottle"
                   },
                   {
                     "fieldName": "retail_value",
-                    "displayName": "Retail value"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100002,
+                    "title": "Retail value",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Retail value",
+                    "numberFormat": "$0,0"
                   },
                   {
                     "fieldName": "pull_price",
-                    "displayName": "Paid"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100003,
+                    "title": "Paid",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Paid",
+                    "numberFormat": "$0,0"
                   },
                   {
                     "fieldName": "net_dollars",
-                    "displayName": "Net $"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100004,
+                    "title": "Net $",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Net $",
+                    "numberFormat": "$0,0"
                   },
                   {
                     "fieldName": "is_win",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "boolean",
+                    "displayAs": "boolean",
+                    "visible": true,
+                    "order": 100005,
+                    "title": "Won?",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
                     "displayName": "Won?"
                   },
                   {
                     "fieldName": "is_placeholder",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "boolean",
+                    "displayAs": "boolean",
+                    "visible": true,
+                    "order": 100006,
+                    "title": "Gap placeholder?",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
                     "displayName": "Gap placeholder?"
                   },
                   {
                     "fieldName": "cumulative_net",
-                    "displayName": "Running total $"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100007,
+                    "title": "Running total $",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Running total $",
+                    "numberFormat": "$0,0"
                   },
                   {
                     "fieldName": "losses_before_this_pull",
-                    "displayName": "Losses right before this win"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "integer",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100008,
+                    "title": "Losses right before this win",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Losses right before this win",
+                    "numberFormat": "0,0"
                   }
                 ]
               },
               "frame": {
                 "title": "Tier 2 ($100 pull) \u2014 pull by pull",
                 "showTitle": true
-              }
+              },
+              "invisibleColumns": [],
+              "allowHTMLByDefault": false,
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "condensed": true,
+              "withRowNumber": false
             }
           },
           "position": {
@@ -981,52 +2733,271 @@
               }
             ],
             "spec": {
-              "version": 3,
+              "version": 1,
               "widgetType": "table",
               "encodings": {
                 "columns": [
                   {
                     "fieldName": "pull_number",
-                    "displayName": "Pull #"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "integer",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100000,
+                    "title": "Pull #",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Pull #",
+                    "numberFormat": "0,0"
                   },
                   {
                     "fieldName": "bottle_label",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100001,
+                    "title": "Bottle",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
                     "displayName": "Bottle"
                   },
                   {
                     "fieldName": "retail_value",
-                    "displayName": "Retail value"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100002,
+                    "title": "Retail value",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Retail value",
+                    "numberFormat": "$0,0"
                   },
                   {
                     "fieldName": "pull_price",
-                    "displayName": "Paid"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100003,
+                    "title": "Paid",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Paid",
+                    "numberFormat": "$0,0"
                   },
                   {
                     "fieldName": "net_dollars",
-                    "displayName": "Net $"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100004,
+                    "title": "Net $",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Net $",
+                    "numberFormat": "$0,0"
                   },
                   {
                     "fieldName": "is_win",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "boolean",
+                    "displayAs": "boolean",
+                    "visible": true,
+                    "order": 100005,
+                    "title": "Won?",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
                     "displayName": "Won?"
                   },
                   {
                     "fieldName": "is_placeholder",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "boolean",
+                    "displayAs": "boolean",
+                    "visible": true,
+                    "order": 100006,
+                    "title": "Gap placeholder?",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
                     "displayName": "Gap placeholder?"
                   },
                   {
                     "fieldName": "cumulative_net",
-                    "displayName": "Running total $"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100007,
+                    "title": "Running total $",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Running total $",
+                    "numberFormat": "$0,0"
                   },
                   {
                     "fieldName": "losses_before_this_pull",
-                    "displayName": "Losses right before this win"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "integer",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100008,
+                    "title": "Losses right before this win",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Losses right before this win",
+                    "numberFormat": "0,0"
                   }
                 ]
               },
               "frame": {
                 "title": "Tier 3 ($500 pull) \u2014 pull by pull",
                 "showTitle": true
-              }
+              },
+              "invisibleColumns": [],
+              "allowHTMLByDefault": false,
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "condensed": true,
+              "withRowNumber": false
             }
           },
           "position": {
@@ -1149,52 +3120,271 @@
               }
             ],
             "spec": {
-              "version": 3,
+              "version": 1,
               "widgetType": "table",
               "encodings": {
                 "columns": [
                   {
                     "fieldName": "pull_number",
-                    "displayName": "Pull #"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "integer",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100000,
+                    "title": "Pull #",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Pull #",
+                    "numberFormat": "0,0"
                   },
                   {
                     "fieldName": "bottle_label",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100001,
+                    "title": "Bottle",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
                     "displayName": "Bottle"
                   },
                   {
                     "fieldName": "retail_value",
-                    "displayName": "Retail value"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100002,
+                    "title": "Retail value",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Retail value",
+                    "numberFormat": "$0,0"
                   },
                   {
                     "fieldName": "pull_price",
-                    "displayName": "Paid"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100003,
+                    "title": "Paid",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Paid",
+                    "numberFormat": "$0,0"
                   },
                   {
                     "fieldName": "net_dollars",
-                    "displayName": "Net $"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100004,
+                    "title": "Net $",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Net $",
+                    "numberFormat": "$0,0"
                   },
                   {
                     "fieldName": "is_win",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "boolean",
+                    "displayAs": "boolean",
+                    "visible": true,
+                    "order": 100005,
+                    "title": "Won?",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
                     "displayName": "Won?"
                   },
                   {
                     "fieldName": "is_placeholder",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "boolean",
+                    "displayAs": "boolean",
+                    "visible": true,
+                    "order": 100006,
+                    "title": "Gap placeholder?",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
                     "displayName": "Gap placeholder?"
                   },
                   {
                     "fieldName": "cumulative_net",
-                    "displayName": "Running total $"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100007,
+                    "title": "Running total $",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Running total $",
+                    "numberFormat": "$0,0"
                   },
                   {
                     "fieldName": "losses_before_this_pull",
-                    "displayName": "Losses right before this win"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "integer",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100008,
+                    "title": "Losses right before this win",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Losses right before this win",
+                    "numberFormat": "0,0"
                   }
                 ]
               },
               "frame": {
                 "title": "Tier 4 ($1000 pull) \u2014 pull by pull",
                 "showTitle": true
-              }
+              },
+              "invisibleColumns": [],
+              "allowHTMLByDefault": false,
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "condensed": true,
+              "withRowNumber": false
             }
           },
           "position": {
@@ -1317,52 +3507,271 @@
               }
             ],
             "spec": {
-              "version": 3,
+              "version": 1,
               "widgetType": "table",
               "encodings": {
                 "columns": [
                   {
                     "fieldName": "pull_number",
-                    "displayName": "Pull #"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "integer",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100000,
+                    "title": "Pull #",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Pull #",
+                    "numberFormat": "0,0"
                   },
                   {
                     "fieldName": "bottle_label",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100001,
+                    "title": "Bottle",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
                     "displayName": "Bottle"
                   },
                   {
                     "fieldName": "retail_value",
-                    "displayName": "Retail value"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100002,
+                    "title": "Retail value",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Retail value",
+                    "numberFormat": "$0,0"
                   },
                   {
                     "fieldName": "pull_price",
-                    "displayName": "Paid"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100003,
+                    "title": "Paid",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Paid",
+                    "numberFormat": "$0,0"
                   },
                   {
                     "fieldName": "net_dollars",
-                    "displayName": "Net $"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100004,
+                    "title": "Net $",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Net $",
+                    "numberFormat": "$0,0"
                   },
                   {
                     "fieldName": "is_win",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "boolean",
+                    "displayAs": "boolean",
+                    "visible": true,
+                    "order": 100005,
+                    "title": "Won?",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
                     "displayName": "Won?"
                   },
                   {
                     "fieldName": "is_placeholder",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "boolean",
+                    "displayAs": "boolean",
+                    "visible": true,
+                    "order": 100006,
+                    "title": "Gap placeholder?",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
                     "displayName": "Gap placeholder?"
                   },
                   {
                     "fieldName": "cumulative_net",
-                    "displayName": "Running total $"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100007,
+                    "title": "Running total $",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Running total $",
+                    "numberFormat": "$0,0"
                   },
                   {
                     "fieldName": "losses_before_this_pull",
-                    "displayName": "Losses right before this win"
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "integer",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100008,
+                    "title": "Losses right before this win",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Losses right before this win",
+                    "numberFormat": "0,0"
                   }
                 ]
               },
               "frame": {
                 "title": "Tier 5 ($250 pull) \u2014 pull by pull",
                 "showTitle": true
-              }
+              },
+              "invisibleColumns": [],
+              "allowHTMLByDefault": false,
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "condensed": true,
+              "withRowNumber": false
             }
           },
           "position": {

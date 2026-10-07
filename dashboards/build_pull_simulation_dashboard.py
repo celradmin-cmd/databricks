@@ -10,8 +10,8 @@ in `00_celr_odds_config.py` changes, then re-import the regenerated .lvdash.json
 Spec versions are per widget type, and getting one wrong costs you the widget:
 the import keeps the dashboard but replaces the offending widget with "Invalid
 widget definition is imported." The first import of this file lost all three
-counters (emitted at v3 — counters are v2) and every table (a `format` object
-on a column, whose `type` key a v3 table column has no slot for). See SPEC_VERSION.
+counters (emitted at v3 — counters are v2) and every table (tables are v1,
+with long-form columns; see table_column). See SPEC_VERSION.
 
 This machine's Databricks CLI profiles don't reach prod_celr, so neither the
 widget schema nor the queries can be checked from here — import the file and
@@ -57,9 +57,10 @@ def dataset(name, display_name, sql_lines):
 
 # Lakeview validates a widget's `encodings` against the schema for its spec
 # version, and the versions are per widget *type*, not one number for the whole
-# dashboard. Charts (bar/line) are v3; counters are v2 — emitting a counter at v3
-# makes the import drop it with "Invalid widget definition is imported."
-SPEC_VERSION = {"counter": 2}
+# dashboard. Charts (bar/line) are v3, counters v2, tables v1 — a table at v3 is
+# rejected with "spec/version must be equal to constant", a counter at v3 is
+# likewise dropped with "Invalid widget definition is imported."
+SPEC_VERSION = {"counter": 2, "table": 1}
 DEFAULT_SPEC_VERSION = 3
 
 
@@ -94,6 +95,62 @@ def counter(name, title, dataset_name, field, fmt=None):
     return w
 
 
+# A v1 table column is the long-form object the table editor itself exports;
+# formatting goes in `numberFormat` (a numeral.js pattern), not a v3-style
+# `format` object, which the import rejects with 'unknown property "type"'.
+COL_KINDS = {
+    "string": ("string", "string", None),
+    "integer": ("integer", "number", "0,0"),
+    "float": ("float", "number", "0,0.0"),
+    "usd": ("float", "number", "$0,0"),
+    "pct": ("float", "number", "0.0%"),
+    "mult": ("float", "number", "0.000"),
+    "boolean": ("boolean", "boolean", None),
+}
+
+
+def table_column(field, title, kind, order):
+    col_type, display_as, number_format = COL_KINDS[kind]
+    col = {
+        "fieldName": field,
+        "booleanValues": ["false", "true"],
+        "imageUrlTemplate": "{{ @ }}",
+        "imageTitleTemplate": "{{ @ }}",
+        "imageWidth": "",
+        "imageHeight": "",
+        "linkUrlTemplate": "{{ @ }}",
+        "linkTextTemplate": "{{ @ }}",
+        "linkTitleTemplate": "{{ @ }}",
+        "linkOpenInNewTab": True,
+        "type": col_type,
+        "displayAs": display_as,
+        "visible": True,
+        "order": 100000 + order,
+        "title": title,
+        "allowSearch": False,
+        "alignContent": "left" if display_as == "string" else "right",
+        "allowHTML": False,
+        "highlightLinks": False,
+        "useMonospaceFont": False,
+        "preserveWhitespace": False,
+        "displayName": title,
+    }
+    if number_format:
+        col["numberFormat"] = number_format
+    return col
+
+
+def table(name, title, dataset_name, columns):
+    """columns: [(field, title, kind)] with kind a COL_KINDS key."""
+    w = widget(name, title, "table", dataset_name, [c[0] for c in columns],
+               {"columns": [table_column(f, t, k, i) for i, (f, t, k) in enumerate(columns)]})
+    w["widget"]["spec"].update({
+        "invisibleColumns": [], "allowHTMLByDefault": False, "itemsPerPage": 25,
+        "paginationSize": "default", "condensed": True, "withRowNumber": False,
+    })
+    return w
+
+
 def laid_out(w, x, y, width, height):
     return {**w, "position": {"x": x, "y": y, "width": width, "height": height}}
 
@@ -107,19 +164,12 @@ MULT_FMT = {"type": "number-plain", "decimalPlaces": {"type": "max", "places": 3
 # ============================================================================
 
 ds_kpi = dataset("ds_kpi", "Tier KPIs", [
-    # Rounded here because table columns can't carry a format (see t_kpi).
-    "SELECT spirit, tier, ROUND(pull_price, 0) AS pull_price, source, n_sessions, total_pulls,",
-    "       ROUND(total_spent, 0) AS total_spent, ROUND(total_retail_won, 0) AS total_retail_won,",
-    "       ROUND(net_profit_loss, 0) AS net_profit_loss,",
-    "       ROUND(avg_net_dollars_per_pull, 0) AS avg_net_dollars_per_pull,",
-    "       ROUND(simulated_win_rate * 100, 1) AS simulated_win_rate,",
-    "       ROUND(target_win_rate * 100, 1) AS target_win_rate,",
-    "       ROUND(simulated_payout_multiple, 3) AS simulated_payout_multiple,",
-    "       ROUND(target_payout_multiple, 3) AS target_payout_multiple,",
+    "SELECT spirit, tier, pull_price, source, n_sessions, total_pulls,",
+    "       total_spent, total_retail_won, net_profit_loss, avg_net_dollars_per_pull,",
+    "       simulated_win_rate, target_win_rate,",
+    "       simulated_payout_multiple, target_payout_multiple,",
     "       avg_losses_before_win, median_losses_before_win, p90_losses_before_win,",
-    "       max_losses_before_win, ROUND(median_session_net, 0) AS median_session_net,",
-    "       ROUND(worst_session_net, 0) AS worst_session_net,",
-    "       ROUND(best_session_net, 0) AS best_session_net,",
+    "       max_losses_before_win, median_session_net, worst_session_net, best_session_net,",
     "       computed_at",
     f"FROM {KPI_TBL}",
     "ORDER BY spirit, tier",
@@ -160,10 +210,8 @@ for tier in SELLABLE_TIERS:
     name = f"ds_walk_t{tier}"
     walkthrough_datasets[tier] = dataset(
         name, f"Tier {tier} (${TIER_PRICE[tier]} pull) — example session, pull by pull", [
-            "SELECT pull_number, bottle_label, ROUND(retail_value, 0) AS retail_value,",
-            "       ROUND(pull_price, 0) AS pull_price, ROUND(net_dollars, 0) AS net_dollars,",
-            "       is_win, is_placeholder, ROUND(cumulative_net, 0) AS cumulative_net,",
-            "       losses_before_this_pull",
+            "SELECT pull_number, bottle_label, retail_value, pull_price, net_dollars,",
+            "       is_win, is_placeholder, cumulative_net, losses_before_this_pull",
             f"FROM {PULLS_TBL}",
             f"WHERE spirit = '{WALKTHROUGH_SPIRIT}' AND tier = {tier}",
             "ORDER BY pull_number",
@@ -183,42 +231,28 @@ overview_layout = [
                       fmt={"type": "date-time"}),
              4, 0, 2, 3),
 
-    laid_out(widget(
-        "t_kpi", "Win / lose by tier — the core table", "table", "ds_kpi",
-        ["spirit", "tier", "pull_price", "n_sessions", "total_pulls",
-         "simulated_win_rate", "target_win_rate",
-         "simulated_payout_multiple", "target_payout_multiple",
-         "avg_losses_before_win", "median_losses_before_win", "p90_losses_before_win",
-         "max_losses_before_win", "avg_net_dollars_per_pull",
-         "median_session_net", "worst_session_net", "best_session_net",
-         "net_profit_loss", "total_spent", "total_retail_won"],
-        {"columns": [
-            {"fieldName": "spirit", "displayName": "Spirit"},
-            {"fieldName": "tier", "displayName": "Tier"},
-            # No "format" on table columns: a v3 table column only takes
-            # fieldName/displayName, and the import rejects a format object with
-            # 'spec/encodings/columns/N has an unknown property "type"'. Rounding
-            # and percent scaling happen in ds_kpi / ds_walk_t* instead.
-            {"fieldName": "pull_price", "displayName": "Pull price"},
-            {"fieldName": "n_sessions", "displayName": "Sessions sim."},
-            {"fieldName": "total_pulls", "displayName": "Total pulls"},
-            {"fieldName": "simulated_win_rate", "displayName": "Win rate % (sim)"},
-            {"fieldName": "target_win_rate", "displayName": "Win rate % (target)"},
-            {"fieldName": "simulated_payout_multiple", "displayName": "Payout x (sim)"},
-            {"fieldName": "target_payout_multiple", "displayName": "Payout x (target)"},
-            {"fieldName": "avg_losses_before_win", "displayName": "Avg losses before a win"},
-            {"fieldName": "median_losses_before_win", "displayName": "Median losses before a win"},
-            {"fieldName": "p90_losses_before_win", "displayName": "P90 losses before a win"},
-            {"fieldName": "max_losses_before_win", "displayName": "Worst losing streak"},
-            {"fieldName": "avg_net_dollars_per_pull", "displayName": "Avg $ net / pull"},
-            {"fieldName": "median_session_net", "displayName": "Median session net ($)"},
-            {"fieldName": "worst_session_net", "displayName": "Worst 100-pull session ($)"},
-            {"fieldName": "best_session_net", "displayName": "Best 100-pull session ($)"},
-            {"fieldName": "net_profit_loss", "displayName": "Net across all sessions ($)"},
-            {"fieldName": "total_spent", "displayName": "Total spent ($)"},
-            {"fieldName": "total_retail_won", "displayName": "Total retail won ($)"},
-        ]},
-    ), 0, 3, 12, 6),
+    laid_out(table("t_kpi", "Win / lose by tier — the core table", "ds_kpi", [
+        ("spirit", "Spirit", "string"),
+        ("tier", "Tier", "integer"),
+        ("pull_price", "Pull price", "usd"),
+        ("n_sessions", "Sessions sim.", "integer"),
+        ("total_pulls", "Total pulls", "integer"),
+        ("simulated_win_rate", "Win rate (sim)", "pct"),
+        ("target_win_rate", "Win rate (target)", "pct"),
+        ("simulated_payout_multiple", "Payout x (sim)", "mult"),
+        ("target_payout_multiple", "Payout x (target)", "mult"),
+        ("avg_losses_before_win", "Avg losses before a win", "float"),
+        ("median_losses_before_win", "Median losses before a win", "float"),
+        ("p90_losses_before_win", "P90 losses before a win", "float"),
+        ("max_losses_before_win", "Worst losing streak", "integer"),
+        ("avg_net_dollars_per_pull", "Avg $ net / pull", "usd"),
+        ("median_session_net", "Median session net ($)", "usd"),
+        ("worst_session_net", "Worst 100-pull session ($)", "usd"),
+        ("best_session_net", "Best 100-pull session ($)", "usd"),
+        ("net_profit_loss", "Net across all sessions ($)", "usd"),
+        ("total_spent", "Total spent ($)", "usd"),
+        ("total_retail_won", "Total retail won ($)", "usd"),
+    ]), 0, 3, 12, 6),
 
     laid_out(widget(
         "b_winrate", "Win rate: simulated vs. the configured target", "bar", "ds_winrate_long",
@@ -269,22 +303,18 @@ row_height = 7
 for i, tier in enumerate(SELLABLE_TIERS):
     y = i * row_height
     ds_name = walkthrough_datasets[tier]["name"]
-    walkthrough_layout.append(laid_out(widget(
-        f"t_walk_t{tier}", f"Tier {tier} (${TIER_PRICE[tier]} pull) — pull by pull", "table", ds_name,
-        ["pull_number", "bottle_label", "retail_value", "pull_price", "net_dollars",
-         "is_win", "is_placeholder", "cumulative_net", "losses_before_this_pull"],
-        {"columns": [
-            {"fieldName": "pull_number", "displayName": "Pull #"},
-            {"fieldName": "bottle_label", "displayName": "Bottle"},
-            {"fieldName": "retail_value", "displayName": "Retail value"},
-            {"fieldName": "pull_price", "displayName": "Paid"},
-            {"fieldName": "net_dollars", "displayName": "Net $"},
-            {"fieldName": "is_win", "displayName": "Won?"},
-            {"fieldName": "is_placeholder", "displayName": "Gap placeholder?"},
-            {"fieldName": "cumulative_net", "displayName": "Running total $"},
-            {"fieldName": "losses_before_this_pull", "displayName": "Losses right before this win"},
-        ]},
-    ), 0, y, 6, row_height))
+    walkthrough_layout.append(laid_out(table(
+        f"t_walk_t{tier}", f"Tier {tier} (${TIER_PRICE[tier]} pull) — pull by pull", ds_name, [
+            ("pull_number", "Pull #", "integer"),
+            ("bottle_label", "Bottle", "string"),
+            ("retail_value", "Retail value", "usd"),
+            ("pull_price", "Paid", "usd"),
+            ("net_dollars", "Net $", "usd"),
+            ("is_win", "Won?", "boolean"),
+            ("is_placeholder", "Gap placeholder?", "boolean"),
+            ("cumulative_net", "Running total $", "usd"),
+            ("losses_before_this_pull", "Losses right before this win", "integer"),
+        ]), 0, y, 6, row_height))
     walkthrough_layout.append(laid_out(widget(
         f"l_walk_t{tier}", f"Tier {tier} — running total across the session", "line", ds_name,
         ["pull_number", "cumulative_net"],
@@ -304,12 +334,134 @@ page_walkthrough = {
 }
 
 # ============================================================================
+# Page 3 — Profits: the same simulation from the house's side of the counter
+# ============================================================================
+# Everything above is the player's view (net = retail won - spent). Here it's
+# flipped: revenue is what players paid for pulls, cost is the retail value of
+# the bottles handed out, and house profit is the difference.
+
+ds_profit_tier = dataset("ds_profit_tier", "House profit by tier", [
+    "SELECT k.spirit, k.tier, concat(k.spirit, ' t', k.tier) AS series, k.pull_price,",
+    "       k.total_pulls, k.total_spent AS revenue, k.total_retail_won AS bottle_cost,",
+    "       k.total_spent - k.total_retail_won AS house_profit,",
+    "       (k.total_spent - k.total_retail_won) / k.total_spent AS house_margin,",
+    "       (k.total_spent - k.total_retail_won) / k.total_pulls AS house_profit_per_pull,",
+    "       -k.median_session_net AS median_session_profit,",
+    "       -k.best_session_net AS worst_session_profit,",
+    "       s.pct_sessions_house_lost",
+    f"FROM {KPI_TBL} k",
+    "LEFT JOIN (",
+    "  SELECT spirit, tier, AVG(CASE WHEN net_profit_loss > 0 THEN 1.0 ELSE 0.0 END) AS pct_sessions_house_lost",
+    f"  FROM {SESSIONS_TBL} GROUP BY spirit, tier",
+    ") s ON s.spirit = k.spirit AND s.tier = k.tier",
+    "ORDER BY k.spirit, k.tier",
+])
+
+# Counters stay unformatted (only the v2 counters without a `format` are known
+# to import cleanly), so the rounding is done here.
+ds_profit_totals = dataset("ds_profit_totals", "House profit totals", [
+    "SELECT ROUND(SUM(total_spent), 0) AS total_revenue,",
+    "       ROUND(SUM(total_spent - total_retail_won), 0) AS total_house_profit,",
+    "       ROUND(100 * SUM(total_spent - total_retail_won) / SUM(total_spent), 1) AS house_margin_pct",
+    f"FROM {KPI_TBL}",
+])
+
+ds_profit_long = dataset("ds_profit_long", "Revenue vs. bottle cost (long form)", [
+    "SELECT concat(spirit, ' t', tier) AS series, 'Revenue (pulls sold)' AS metric, total_spent AS dollars",
+    f"FROM {KPI_TBL}",
+    "UNION ALL",
+    "SELECT concat(spirit, ' t', tier), 'Bottle cost (retail given out)', total_retail_won",
+    f"FROM {KPI_TBL}",
+    "ORDER BY 1, 2",
+])
+
+ds_session_profit = dataset("ds_session_profit", "House profit per session", [
+    "SELECT concat(spirit, ' t', tier) AS series, -net_profit_loss AS house_profit",
+    f"FROM {SESSIONS_TBL}",
+])
+
+datasets += [ds_profit_tier, ds_profit_totals, ds_profit_long, ds_session_profit]
+
+profits_layout = [
+    laid_out(counter("c_revenue", "Total pull revenue ($)", "ds_profit_totals", "total_revenue"),
+             0, 0, 2, 3),
+    laid_out(counter("c_house_profit", "Total house profit ($)", "ds_profit_totals", "total_house_profit"),
+             2, 0, 2, 3),
+    laid_out(counter("c_house_margin", "House margin (%)", "ds_profit_totals", "house_margin_pct"),
+             4, 0, 2, 3),
+
+    laid_out(table("t_profit", "House profit by tier", "ds_profit_tier", [
+        ("spirit", "Spirit", "string"),
+        ("tier", "Tier", "integer"),
+        ("pull_price", "Pull price", "usd"),
+        ("total_pulls", "Pulls sold", "integer"),
+        ("revenue", "Revenue ($)", "usd"),
+        ("bottle_cost", "Bottle cost ($)", "usd"),
+        ("house_profit", "House profit ($)", "usd"),
+        ("house_margin", "Margin", "pct"),
+        ("house_profit_per_pull", "Profit / pull ($)", "usd"),
+        ("median_session_profit", "Median session profit ($)", "usd"),
+        ("worst_session_profit", "Worst session for the house ($)", "usd"),
+        ("pct_sessions_house_lost", "Sessions the house lost", "pct"),
+    ]), 0, 3, 12, 6),
+
+    laid_out(widget(
+        "b_profit_per_pull", "House profit per pull, by tier", "bar", "ds_profit_tier",
+        ["series", "house_profit_per_pull"],
+        {
+            "x": {"fieldName": "series", "scale": {"type": "categorical"}, "displayName": "Spirit / tier"},
+            "y": {"fieldName": "house_profit_per_pull", "scale": {"type": "quantitative"},
+                  "displayName": "Profit / pull", "format": USD_FMT},
+        },
+    ), 0, 9, 6, 6),
+
+    laid_out(widget(
+        "b_margin", "House margin, by tier", "bar", "ds_profit_tier",
+        ["series", "house_margin"],
+        {
+            "x": {"fieldName": "series", "scale": {"type": "categorical"}, "displayName": "Spirit / tier"},
+            "y": {"fieldName": "house_margin", "scale": {"type": "quantitative"},
+                  "displayName": "Margin", "format": PCT_FMT},
+        },
+    ), 6, 9, 6, 6),
+
+    laid_out(widget(
+        "b_rev_vs_cost", "Revenue vs. bottle cost, by tier", "bar", "ds_profit_long",
+        ["series", "metric", "dollars"],
+        {
+            "x": {"fieldName": "series", "scale": {"type": "categorical"}, "displayName": "Spirit / tier"},
+            "y": {"fieldName": "dollars", "scale": {"type": "quantitative"}, "displayName": "Dollars",
+                  "format": USD_FMT},
+            "color": {"fieldName": "metric", "scale": {"type": "categorical"}, "displayName": "Metric"},
+        },
+    ), 0, 15, 6, 7),
+
+    laid_out(widget(
+        "b_session_profit", "House profit variance across simulated sessions", "bar", "ds_session_profit",
+        ["series", "house_profit"],
+        {
+            "x": {"fieldName": "house_profit", "scale": {"type": "quantitative"},
+                  "displayName": "Session house profit $"},
+            "y": {"fieldName": "series", "scale": {"type": "categorical"}, "displayName": "Spirit / tier"},
+        },
+    ), 6, 15, 6, 7),
+]
+
+page_profits = {
+    "name": "page_profits",
+    "displayName": "Profits — the house view",
+    "pageType": "PAGE_TYPE_CANVAS",
+    "layoutVersion": "GRID_V1",
+    "layout": profits_layout,
+}
+
+# ============================================================================
 # Assemble
 # ============================================================================
 
 dashboard = {
     "datasets": datasets,
-    "pages": [page_overview, page_walkthrough],
+    "pages": [page_overview, page_profits, page_walkthrough],
     "uiSettings": {"theme": {"widgetHeaderAlignment": "ALIGNMENT_UNSPECIFIED"}, "applyModeEnabled": False},
 }
 
@@ -317,4 +469,5 @@ out_path = HERE / "pull_simulation.lvdash.json"
 out_path.write_text(json.dumps(dashboard, indent=2) + "\n")
 print(f"Wrote {out_path} "
       f"({len(datasets)} datasets, {len(overview_layout)} overview widgets, "
+      f"{len(profits_layout)} profits widgets, "
       f"{len(walkthrough_layout)} walkthrough widgets across {len(SELLABLE_TIERS)} tiers)")

@@ -116,8 +116,10 @@ Two draw modes, set by the `source` widget:
 ### Dashboard
 
 `dashboards/pull_simulation.lvdash.json` is a ready-to-import Lakeview dashboard
-over those four tables — two pages, "Overview" (KPI table, win-rate-vs-target bar,
-streak-distribution bar, session-net variance) and "Walkthrough" (one table + one
+over those four tables — three pages, "Overview" (KPI table, win-rate-vs-target bar,
+streak-distribution bar, session-net variance), "Profits" (the house's side:
+revenue, bottle cost, house profit and margin per tier, plus how often a session
+loses the house money) and "Walkthrough" (one table + one
 running-total line chart per tier, pull by pull, for a single bourbon session —
 literally "3 losses, then a $62 win on a $50 pull").
 
@@ -145,10 +147,12 @@ dashboard tries to run the query.
 
 **Widget spec versions are per widget type**, and a wrong one doesn't fail the
 import — it swaps that one widget for "Invalid widget definition is imported"
-and carries on, so the dashboard looks mostly fine. Charts (bar, line) and
-tables are `version: 3`; counters are `version: 2`. A v3 table column takes
-`fieldName`, `displayName` and `format` only — no `type`. Both of these cost a
-round of widgets on the first import.
+and carries on, so the dashboard looks mostly fine. Charts (bar, line) are `version: 3`;
+counters are `version: 2`; tables are `version: 1` with the long-form column
+objects the table editor exports (`type`, `displayAs`, `numberFormat`, ...) —
+see `table_column` in the generator. A table at v3 fails with "spec/version must
+be equal to constant"; a v3-style `format` object on a table column fails with
+'unknown property "type"'. Each of these cost a round of widgets on import.
 
 **Not deployed from here.** None of the Databricks CLI profiles on this machine
 reach `prod_celr` — the one that authenticates is a different workspace (catalogs
