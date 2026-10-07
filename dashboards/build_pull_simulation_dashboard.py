@@ -3,8 +3,8 @@ writes. A script rather than a hand-edited JSON blob because the walkthrough pag
 repeats the same table+chart pair once per sellable tier — easier to keep that
 in sync with TIER_PRICE by generating it than by hand-editing four copies.
 
-Run this (plain `python3 build_pull_simulation_dashboard.py`, not a Databricks
-notebook — it has no Spark/dbutils dependency) whenever TIER_PRICE or SELLABLE_TIERS
+Run this (plain `python3 build_pull_simulation_dashboard.py`, or as a Databricks
+notebook from its folder in the repo — it has no Spark/dbutils dependency) whenever TIER_PRICE or SELLABLE_TIERS
 in `00_celr_odds_config.py` changes, then re-import the regenerated .lvdash.json.
 
 Spec versions are per widget type, and getting one wrong costs you the widget:
@@ -22,9 +22,12 @@ import json
 import pathlib
 import sys
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
+# A Databricks notebook has no __file__, but its working directory is the
+# notebook's own folder, so cwd stands in for it there.
+HERE = pathlib.Path(__file__).resolve().parent if "__file__" in globals() else pathlib.Path.cwd()
+sys.path.insert(0, str(HERE.parent))
 # Reuse the real tier/price table rather than hardcoding it a second time here.
-_cfg_src = (pathlib.Path(__file__).resolve().parent.parent / "00_celr_odds_config.py").read_text()
+_cfg_src = (HERE.parent / "00_celr_odds_config.py").read_text()
 _cfg_ns: dict = {}
 exec("\n".join(l for l in _cfg_src.split("\n") if not l.startswith(("# MAGIC", "# COMMAND"))), _cfg_ns)
 TIER_PRICE = _cfg_ns["TIER_PRICE"]
@@ -310,7 +313,7 @@ dashboard = {
     "uiSettings": {"theme": {"widgetHeaderAlignment": "ALIGNMENT_UNSPECIFIED"}, "applyModeEnabled": False},
 }
 
-out_path = pathlib.Path(__file__).resolve().parent / "pull_simulation.lvdash.json"
+out_path = HERE / "pull_simulation.lvdash.json"
 out_path.write_text(json.dumps(dashboard, indent=2) + "\n")
 print(f"Wrote {out_path} "
       f"({len(datasets)} datasets, {len(overview_layout)} overview widgets, "
