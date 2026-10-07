@@ -13,27 +13,26 @@
 # MAGIC
 # MAGIC The curve is tuned to two targets, both asserted by the self-test at the bottom:
 # MAGIC
-# MAGIC 1. **Win rate 40%** — a win roughly every 2.5 pulls, and the overwhelming
-# MAGIC    majority of those wins land in band 2 (1.00–1.25x), the band immediately
-# MAGIC    above the loss line. A band-2 win on a $50 pull is a $50–$62 bottle: it
-# MAGIC    reads as a win without costing the house much.
-# MAGIC 2. **Expected payout 0.9975x of pull price** — identical to the previous
-# MAGIC    six-band curve (41/35/20/3/1/0.5). The win rate went from 24.4% to 40.0%
-# MAGIC    for free, in EV terms.
+# MAGIC 1. **Expected payout 0.8935x of pull price** — the house keeps ~10.7% of GMV
+# MAGIC    from the curve alone (target range 10–20% of GMV). Sellback at 100% of
+# MAGIC    retail inside 2 minutes passes this payout straight through to the player,
+# MAGIC    so this number *is* the house edge for instant sellers.
+# MAGIC 2. **Win rate 24.6%** — a win roughly every 4 pulls, with 75% of those wins in
+# MAGIC    band 2 (1.00–1.25x), the band immediately above the loss line. A band-2 win
+# MAGIC    on a $50 pull is a $50–$62 bottle: it reads as a win without costing the
+# MAGIC    house much.
 # MAGIC
-# MAGIC ## Why band 2 had to be split
-# MAGIC The old curve's first win band was a single wide 1.00–1.60x. Pushing enough
-# MAGIC probability into it to hit a 40% win rate costs ~8% more payout, because the
-# MAGIC average win in that band is 1.3x. Splitting it at 1.25x lets the bulk of the
-# MAGIC probability sit on 1.00–1.25x (average 1.125x) while 1.25–1.60x stays a thin
-# MAGIC 5%. That is what buys the win rate back to EV-neutral.
+# MAGIC ## Where the shape comes from
+# MAGIC The probabilities follow a market-standard outcomes table (36/39/22/2/0.5/0.1
+# MAGIC over the same multiples of par), which on its own runs ~7.9% house edge. Its
+# MAGIC 1.00–1.60x band is split here at 1.25x (18.5% / 3.5%) so most wins land at
+# MAGIC the cheap end of that range; that split is what lifts the edge to ~10.7%.
+# MAGIC The source table sums to 99.6%; the missing 0.4% sits in the deep-loss band.
 # MAGIC
-# MAGIC ## What paid for the rest
-# MAGIC The loss side. To win 40% of the time at flat EV the losses have to be deeper:
-# MAGIC the deep-loss band (0.50–0.70x) goes from 35% to 29.2%, but the shallow-loss
-# MAGIC band (0.70–1.00x) goes from 41% to 30.8% — so the *share of losses* that are
-# MAGIC deep rose from 46% to 49%. Big winners also got rarer, deliberately: 1.6x-plus
-# MAGIC went from 4.5% to 3.2%, and the 8x-plus grail from 0.50% to 0.30%.
+# MAGIC ## History
+# MAGIC The previous curve (29.2/30.8/31.8/5/2/0.9/0.3) ran a 40% win rate at 0.9975x
+# MAGIC payout: no house edge. A 30 x $1k session finished ahead 34% of the time; on
+# MAGIC this curve it finishes ahead ~12% of the time, median net about -$4k.
 # MAGIC
 # MAGIC Everything below is the *only* place you tune odds. Change a number here and
 # MAGIC every notebook follows. Re-run the self-test after any edit.
@@ -60,14 +59,14 @@ SELLABLE_TIERS = (1, 2, 3, 4, 5)
 # Each tuple: (lo_multiple_inclusive, hi_multiple_exclusive, target_probability).
 # Bands must be contiguous, ascending, and sum to 1.0 — all asserted below.
 ODDS_CURVE = [
-    (0.50, 0.70, 0.292),   # deep loss        -> $25–$35 on a $50 pull
-    (0.70, 1.00, 0.308),   # shallow loss     -> $35–$50
+    (0.50, 0.70, 0.364),   # deep loss        -> $25–$35 on a $50 pull
+    (0.70, 1.00, 0.390),   # shallow loss     -> $35–$50
     # ---------------------------------------------------------------- win line
-    (1.00, 1.25, 0.318),   # the win          -> $50–$62   (79.5% of all wins)
-    (1.25, 1.60, 0.050),   # good win         -> $62–$80
+    (1.00, 1.25, 0.185),   # the win          -> $50–$62   (75.2% of all wins)
+    (1.25, 1.60, 0.035),   # good win         -> $62–$80
     (1.60, 3.00, 0.020),   # nice win         -> $80–$150
-    (3.00, 8.00, 0.009),   # big win          -> $150–$400
-    (8.00, 16.00, 0.003),  # grail            -> $400–$800
+    (3.00, 8.00, 0.005),   # big win          -> $150–$400
+    (8.00, 16.00, 0.001),  # grail            -> $400–$800
 ]
 
 # Weights are integers so the pull selector stays simple. SCALE = the total weight
@@ -179,7 +178,7 @@ def weight_for_band(band_idx, n_bottles_in_band):
     also means the weights are only correct for the `n` they were computed against:
     remove a bottle from a cell without recomputing and that cell's total weight —
     and therefore its odds — drops in proportion. Any process that adds or removes
-    a floor row MUST recompute the affected cells (see `05_replenish_floor.py`)."""
+    a floor row MUST recompute the affected cells (see `04_replenish_floor.py`)."""
     if n_bottles_in_band <= 0:
         return 0
     target_prob = ODDS_CURVE[band_idx][2]
@@ -195,14 +194,14 @@ def target_prob(band_idx):
 # MAGIC ### How deep each cell should be stocked
 # MAGIC Odds come from `weight`, not from counts, so a cell with one bottle has exactly
 # MAGIC the same probability as a cell with fifty. Depth buys two other things:
-# MAGIC **variety** (players in the 31.8% band shouldn't keep seeing the same bottle)
+# MAGIC **variety** (players in the 39% band shouldn't keep seeing the same bottle)
 # MAGIC and **headroom** (a cell that empties takes its band's probability to zero and
 # MAGIC silently reshapes the whole curve).
 # MAGIC
 # MAGIC So target depth is proportional to how often a cell is drawn from, with a hard
 # MAGIC minimum so even the 0.3% grail band can't run dry. This is the single
-# MAGIC definition of "stocked" used by both `05_replenish_floor.py` (what to top up)
-# MAGIC and `06_inventory_reorder_alert.py` (what to buy).
+# MAGIC definition of "stocked" used by both `04_replenish_floor.py` (what to top up)
+# MAGIC and `05_inventory_reorder_alert.py` (what to buy).
 
 # COMMAND ----------
 
@@ -249,24 +248,23 @@ def win_rate():
 def expected_multiple():
     """Expected retail value returned per dollar of pull price, using band midpoints.
 
-    This is the house's payout ratio. At 1.0 the floor gives back exactly the pull
-    price in retail value, and the business's margin comes from buying bottles below
-    retail plus the sellback discount — not from the curve. Keep an eye on it: every
-    probability edit moves it."""
+    This is the house's payout ratio; 1 minus it is the house edge on GMV. At 1.0 the
+    floor gives back exactly the pull price in retail value and the curve earns
+    nothing. Keep an eye on it: every probability edit moves it."""
     return sum(p * (lo + hi) / 2.0 for (lo, hi, p) in ODDS_CURVE)
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ### Self-test — asserts the two design targets and prints the tier-1 breakdown
-# MAGIC Fails loudly if an edit to `ODDS_CURVE` breaks the 40% win rate or moves the
-# MAGIC payout ratio off the 0.9975x it was tuned to. Widen the tolerances here only
+# MAGIC Fails loudly if an edit to `ODDS_CURVE` breaks the 24.6% win rate or moves the
+# MAGIC payout ratio off the 0.8935x it was tuned to. Widen the tolerances here only
 # MAGIC deliberately: they are the contract, not a formality.
 
 # COMMAND ----------
 
-TARGET_WIN_RATE = 0.40        # a win roughly every 2.5 pulls
-TARGET_PAYOUT_MULTIPLE = 0.9975   # matches the previous six-band curve exactly
+TARGET_WIN_RATE = 0.246       # a win roughly every 4 pulls
+TARGET_PAYOUT_MULTIPLE = 0.8935   # house keeps ~10.7% of GMV (target 10–20%)
 
 _wr = win_rate()
 _ev = expected_multiple()
@@ -279,7 +277,7 @@ print(f"Big winners (1.6x+): {sum(p for (lo, _hi, p) in ODDS_CURVE if lo >= 1.6)
 print(f"Grail (8x+):         {sum(p for (lo, _hi, p) in ODDS_CURVE if lo >= 8.0) * 100:.2f}%")
 
 assert abs(_wr - TARGET_WIN_RATE) < 0.02, (
-    f"win rate is {_wr:.3f}, target {TARGET_WIN_RATE} — a pull should win every 2–3 tries"
+    f"win rate is {_wr:.3f}, target {TARGET_WIN_RATE} — a pull should win about every 4 tries"
 )
 assert abs(_ev - TARGET_PAYOUT_MULTIPLE) < 0.01, (
     f"payout ratio is {_ev:.4f}, target {TARGET_PAYOUT_MULTIPLE} — this curve gives away "

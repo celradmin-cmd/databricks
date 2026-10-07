@@ -6,7 +6,7 @@
 # MAGIC %md
 # MAGIC # 06 · Low-inventory reorder alert
 # MAGIC
-# MAGIC `05_replenish_floor.py` refills the app floor out of the reserve pool — the
+# MAGIC `04_replenish_floor.py` refills the app floor out of the reserve pool — the
 # MAGIC never-placed bottles sitting in gold. That pool only ever shrinks: a bottle
 # MAGIC leaves it when it goes on the floor and never comes back. This notebook
 # MAGIC watches it, and tells you **what to buy and what you can pay** before it runs
@@ -38,10 +38,10 @@
 # MAGIC ~$56 to fill its cell can be bought for at most ~$36. That is the number to
 # MAGIC negotiate with. Set `gross_margin` to whatever the business actually runs at.
 # MAGIC
-# MAGIC Note what this does *not* cover: the pull itself is roughly EV-neutral by
-# MAGIC design (`expected_multiple()` in `00_celr_odds_config` is 0.9975x — the floor
-# MAGIC gives back about one dollar of retail for every dollar pulled). The entire
-# MAGIC margin therefore comes from buying below retail plus the sellback discount.
+# MAGIC Note what this does *not* cover: the pull itself carries a house edge by
+# MAGIC design (`expected_multiple()` in `00_celr_odds_config` is 0.8935x — the floor
+# MAGIC gives back about 89 cents of retail for every dollar pulled). Buying below
+# MAGIC retail and the sellback discount add margin on top of that.
 # MAGIC Buy above these ceilings for long and the business does not make money, no
 # MAGIC matter what the odds curve says.
 # MAGIC

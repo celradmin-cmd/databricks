@@ -1,4 +1,4 @@
-"""Generates pull_simulation.lvdash.json from the four tables `07_pull_simulation.py`
+"""Generates pull_simulation.lvdash.json from the four tables `06_pull_simulation.py`
 writes. A script rather than a hand-edited JSON blob because the walkthrough page
 repeats the same table+chart pair once per sellable tier — easier to keep that
 in sync with TIER_PRICE by generating it than by hand-editing four copies.
@@ -7,12 +7,16 @@ Run this (plain `python3 build_pull_simulation_dashboard.py`, not a Databricks
 notebook — it has no Spark/dbutils dependency) whenever TIER_PRICE or SELLABLE_TIERS
 in `00_celr_odds_config.py` changes, then re-import the regenerated .lvdash.json.
 
-Validated shape: the dataset/page/widget JSON this script emits was round-tripped
-through a live workspace's `databricks lakeview create` / `get` (counter, bar,
-line and table widget specs each came back byte-for-byte identical) before this
-generator was written. What could NOT be verified here is live data from
-prod_celr, since this machine's Databricks CLI profiles don't reach that
-workspace — import it and open the dashboard once to confirm the queries run.
+Spec versions are per widget type, and getting one wrong costs you the widget:
+the import keeps the dashboard but replaces the offending widget with "Invalid
+widget definition is imported." The first import of this file lost all three
+counters (emitted at v3 — counters are v2) and the KPI table (a stray `type`
+key on a column, which a v3 table column has no slot for). See SPEC_VERSION.
+
+This machine's Databricks CLI profiles don't reach prod_celr, so neither the
+widget schema nor the queries can be checked from here — import the file and
+look at the canvas: every widget rendering, with data, is the only real
+confirmation.
 """
 import json
 import pathlib
@@ -48,6 +52,14 @@ def dataset(name, display_name, sql_lines):
     return {"name": name, "displayName": display_name, "queryLines": ["\n".join(sql_lines)]}
 
 
+# Lakeview validates a widget's `encodings` against the schema for its spec
+# version, and the versions are per widget *type*, not one number for the whole
+# dashboard. Charts (bar/line) are v3; counters are v2 — emitting a counter at v3
+# makes the import drop it with "Invalid widget definition is imported."
+SPEC_VERSION = {"counter": 2}
+DEFAULT_SPEC_VERSION = 3
+
+
 def widget(name, title, widget_type, dataset_name, fields, encodings, query_name="main_query",
            disaggregated=True):
     return {
@@ -62,7 +74,7 @@ def widget(name, title, widget_type, dataset_name, fields, encodings, query_name
                 },
             }],
             "spec": {
-                "version": 3,
+                "version": SPEC_VERSION.get(widget_type, DEFAULT_SPEC_VERSION),
                 "widgetType": widget_type,
                 "encodings": encodings,
                 "frame": {"title": title, "showTitle": True},
@@ -171,8 +183,10 @@ overview_layout = [
         {"columns": [
             {"fieldName": "spirit", "displayName": "Spirit"},
             {"fieldName": "tier", "displayName": "Tier"},
-            {"fieldName": "pull_price", "displayName": "Pull price", "type": "number-currency",
-             "format": USD_FMT},
+            # No "type" key here: a v3 table column takes its formatting from
+            # "format" alone, and the stray "type" is what the import rejected
+            # with 'spec/encodings/columns/2 has an unknown property "type"'.
+            {"fieldName": "pull_price", "displayName": "Pull price", "format": USD_FMT},
             {"fieldName": "n_sessions", "displayName": "Sessions sim."},
             {"fieldName": "total_pulls", "displayName": "Total pulls"},
             {"fieldName": "simulated_win_rate", "displayName": "Win rate (sim)", "format": PCT_FMT},

@@ -13,7 +13,7 @@
 # MAGIC
 # MAGIC 1. **How much would they win or lose?** — real dollars, not just percentages.
 # MAGIC 2. **How often do they win more than they paid?** — the simulated win rate,
-# MAGIC    checked against the 40% target `00` asserts.
+# MAGIC    checked against the 24.6% target `00` asserts.
 # MAGIC 3. **How many pulls land between wins?** — e.g. "3 losses then a win" — the
 # MAGIC    streak distribution, which a probability alone doesn't make tangible.
 # MAGIC
@@ -30,7 +30,7 @@
 # MAGIC
 # MAGIC Both modes draw **with replacement** across pulls, which matches reality for a
 # MAGIC single session: a pull doesn't remove a row from the floor, a *decision*
-# MAGIC (`decideRip` → `retireBottle()`) does, and `05_replenish_floor.py` restocks
+# MAGIC (`decideRip` → `retireBottle()`) does, and `04_replenish_floor.py` restocks
 # MAGIC behind it — so treating the floor as static across one person's 100 pulls is
 # MAGIC the same assumption `weighted_tier_catalog()`/`draw_weighted_bottle()` already make.
 # MAGIC

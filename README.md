@@ -19,11 +19,12 @@ All Things Celr databricks.
 
 Tuned to two targets, both asserted in `00_celr_odds_config.py`:
 
-- **40% win rate** — a bottle worth at least the pull price roughly every 2.5
-  pulls, with 79.5% of those wins in band 2 (1.00–1.25x par), the band immediately
-  above the loss line.
-- **0.9975x payout** — the floor gives back the same retail value per dollar
-  pulled as the previous six-band curve did at a 24.4% win rate.
+- **0.8935x payout** — the house keeps ~10.7% of GMV from the curve (target
+  10–20%). Instant sellback pays 100% of retail, so this is the edge on an
+  instant seller.
+- **24.6% win rate** — a bottle worth at least the pull price roughly every 4
+  pulls, with 75% of those wins in band 2 (1.00–1.25x par), the band
+  immediately above the loss line.
 
 Band 2 is split at 1.25x specifically to make that pair possible; a single wide
 1.00–1.60x win band costs ~8% more payout at the same win rate.
@@ -141,6 +142,13 @@ the server accepts and later re-splits back into one element per line on its own
 Don't hand-edit `queryLines` in the generated file as a list of logical lines
 without newlines — it will silently produce broken SQL that only fails when the
 dashboard tries to run the query.
+
+**Widget spec versions are per widget type**, and a wrong one doesn't fail the
+import — it swaps that one widget for "Invalid widget definition is imported"
+and carries on, so the dashboard looks mostly fine. Charts (bar, line) and
+tables are `version: 3`; counters are `version: 2`. A v3 table column takes
+`fieldName`, `displayName` and `format` only — no `type`. Both of these cost a
+round of widgets on the first import.
 
 **Not deployed from here.** None of the Databricks CLI profiles on this machine
 reach `prod_celr` — the one that authenticates is a different workspace (catalogs

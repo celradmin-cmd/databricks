@@ -32,7 +32,7 @@
 # MAGIC |---|---|
 # MAGIC | A · Swap | For each departed bottle, place a never-used reserve bottle of equivalent value |
 # MAGIC | B · Reweight | Recompute `weight` for **every** cell on the floor from its current count |
-# MAGIC | C · Report | List cells still below target, for `06_inventory_reorder_alert.py` |
+# MAGIC | C · Report | List cells still below target, for `05_inventory_reorder_alert.py` |
 # MAGIC
 # MAGIC ## How a replacement is chosen
 # MAGIC A bottle's band membership is decided entirely by `retail_value / tier_price`.
@@ -95,7 +95,7 @@ DRY_RUN      = dbutils.widgets.get("dry_run") == "true"
 
 RIPS_TBL = f"{CATALOG}.{APP}.rips"
 LOG_TBL  = f"{CATALOG}.{APP}.replenishment_log"
-GAP_TBL  = f"{CATALOG}.{GOLD}.floor_gaps"   # read by 06_inventory_reorder_alert.py
+GAP_TBL  = f"{CATALOG}.{GOLD}.floor_gaps"   # read by 05_inventory_reorder_alert.py
 
 SPIRITS = {
     "bourbon": {
@@ -244,14 +244,14 @@ def pick_replacement(target_value, pool):
 def load_reserve_pool(gold_table):
     """Never-placed, priced, placeable bottles — the stock this notebook can draw on.
 
-    `ever_placed` is the sticky ledger from `04_sync_collection_from_unicorn.py`:
+    `ever_placed` is the sticky ledger from `sync_collection_from_unicorn.py`:
     once a bottle has been on the app it is out of the pool forever, which is the
     whole point of that column."""
     g = spark.table(gold_table)
     missing = [c for c in ("ever_placed", "app_status") if c not in g.columns]
     if missing:
         raise ValueError(
-            f"{gold_table} is missing {missing}. Run 04_sync_collection_from_unicorn.py "
+            f"{gold_table} is missing {missing}. Run sync_collection_from_unicorn.py "
             f"Part 2 first — without the ledger this notebook cannot tell a fresh bottle "
             f"from one that has already been on the app, and would re-use stock."
         )
@@ -565,7 +565,7 @@ for spirit in TARGETS:
 
 # MAGIC %md
 # MAGIC ## Publish the gap table
-# MAGIC `06_inventory_reorder_alert.py` reads this rather than recomputing it, so the
+# MAGIC `05_inventory_reorder_alert.py` reads this rather than recomputing it, so the
 # MAGIC numbers in the reorder email are exactly the numbers this run acted on.
 
 # COMMAND ----------

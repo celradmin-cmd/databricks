@@ -101,7 +101,7 @@ assert len(TIERS) <= APP_SYNC_SLOTS, (
 cat = spark.table(SOURCE_TABLE)
 
 # Never re-use a bottle. Two filters, both written by
-# `04_sync_collection_from_unicorn.py` Part 2:
+# `sync_collection_from_unicorn.py` Part 2:
 #
 #   app_status == 'retired'  -> shipped or stored; physically gone from the building.
 #   ever_placed == true      -> has been on an app floor at least once, ever.
@@ -114,7 +114,7 @@ cat = spark.table(SOURCE_TABLE)
 # Bottles currently on the floor are `ever_placed` too, so a full rebuild with this
 # filter produces an entirely NEW floor from the reserve pool rather than keeping
 # the existing one. That is intentional for a fresh shipment, but it is not how you
-# top up a floor day to day — use `05_replenish_floor.py`, which preserves the
+# top up a floor day to day — use `04_replenish_floor.py`, which preserves the
 # existing rows and only fills what left.
 if "app_status" in cat.columns:
     n_before = cat.count()
@@ -124,7 +124,7 @@ if "app_status" in cat.columns:
         print(f"Excluded {n_retired} retired bottles (shipped/stored) from this floor build.")
 else:
     print("[info] app_status column not present on the source catalog yet — "
-          "run 04_sync_collection_from_unicorn.py's Part 2 to enable retired-bottle exclusion.")
+          "run sync_collection_from_unicorn.py's Part 2 to enable retired-bottle exclusion.")
 
 if "ever_placed" in cat.columns:
     n_before = cat.count()
@@ -141,7 +141,7 @@ if "ever_placed" in cat.columns:
 else:
     print("[warn] ever_placed column not present on the source catalog — this build CANNOT "
           "guarantee it won't re-use a bottle that has already appeared on the app. "
-          "Run 04_sync_collection_from_unicorn.py's Part 2 first.")
+          "Run sync_collection_from_unicorn.py's Part 2 first.")
 
 n_bottles = cat.count()
 print(f"Source catalog: {n_bottles} physical bottles (expected ~{BOTTLES_EXPECTED}).")
@@ -337,7 +337,7 @@ floor = floor_pre.select(
     # The floor row's id IS the physical bottle's gold bottle_serial — not a fresh
     # uuid. Everything that tracks a bottle across systems keys on this: `rips.
     # bourbon_id` / `rips.agave_id` store it, `retired_bottles.bottle_id` stores it,
-    # and `04_sync_collection_from_unicorn.py` joins it back to
+    # and `sync_collection_from_unicorn.py` joins it back to
     # `gold.*_catalog.bottle_serial` to decide app_status. Generating a new uuid here
     # broke every one of those joins — app_status could never resolve to 'in_app' or
     # 'retired', so the never-re-use ledger silently matched nothing.
@@ -375,8 +375,8 @@ else:
     print(f"Wrote {n} rows to {TARGET_TABLE} (mode={WRITE_MODE}).")
 
     # Spend the bottles in the ledger immediately. Waiting for
-    # `04_sync_collection_from_unicorn.py` to notice them leaves a window in which
-    # another build — or `05_replenish_floor.py` — could hand the same physical
+    # `sync_collection_from_unicorn.py` to notice them leaves a window in which
+    # another build — or `04_replenish_floor.py` — could hand the same physical
     # bottle to a second floor. `ever_placed` is OR-ed, never cleared.
     from delta.tables import DeltaTable
     placed_serials = real_rows.select("bottle_serial").distinct()
@@ -392,7 +392,7 @@ else:
         print(f"Marked {placed_serials.count()} bottles as in_app / ever_placed in {SOURCE_TABLE}.")
     except Exception as e:
         print(f"!! Could not mark bottles as placed in {SOURCE_TABLE}: {e}\n"
-              f"   Run 04_sync_collection_from_unicorn.py Part 2 to repair the ledger "
+              f"   Run sync_collection_from_unicorn.py Part 2 to repair the ledger "
               f"BEFORE any other floor build or replenishment run, or bottles may be re-used.")
 
 # COMMAND ----------

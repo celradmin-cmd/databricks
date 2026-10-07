@@ -63,7 +63,7 @@ DO_ENRICH    = dbutils.widgets.get("enrich") == "true"
 
 from pyspark.sql import functions as F
 
-# Re-use flags written back to bronze by `04_sync_collection_from_unicorn.py` Part 2.
+# Re-use flags written back to bronze by `sync_collection_from_unicorn.py` Part 2.
 # This notebook rebuilds gold with `mode("overwrite")`, so anything not carried
 # through here is destroyed. `ever_placed` in particular is the ledger that stops a
 # bottle being shown on the app twice — dropping it would silently return every

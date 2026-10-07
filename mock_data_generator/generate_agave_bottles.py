@@ -120,7 +120,7 @@ try:
     existing_df = spark.table(BRONZE_TABLE)
 
     # Only UNSPENT bottles count as coverage. `ever_placed` is the sticky ledger
-    # written back to bronze by `04_sync_collection_from_unicorn.py` Part 2: a
+    # written back to bronze by `sync_collection_from_unicorn.py` Part 2: a
     # bottle carrying it has already been on the app and can never be placed again,
     # so counting it here would make the generator think a cell is stocked when the
     # reserve pool behind it is actually empty.
@@ -132,7 +132,7 @@ try:
             print(f"ignoring {n_spent} already-used bottles (ever_placed) when measuring coverage")
     else:
         print("[warn] bronze has no ever_placed column — treating every existing row as "
-              "unspent stock. Run 04_sync_collection_from_unicorn.py Part 2 first or this "
+              "unspent stock. Run sync_collection_from_unicorn.py Part 2 first or this "
               "run will under-generate.")
 
     existing = existing_df.select("retail_value").collect()
@@ -163,7 +163,7 @@ print(f"\nremaining cell-coverage to fill: {total} (across a {TOTAL_BOTTLES}-bot
 # MAGIC ### Restock mode — generate exactly what the reorder alert asked for
 # MAGIC With `restock_from_reorder=true` the cell-by-cell demand above is replaced by
 # MAGIC `gold.reorder_recommendations`, the buy list published by
-# MAGIC `06_inventory_reorder_alert.py`. Use this to top the reserve pool back up
+# MAGIC `05_inventory_reorder_alert.py`. Use this to top the reserve pool back up
 # MAGIC after bottles have been shipped out, instead of re-deriving a whole floor's
 # MAGIC worth of demand.
 # MAGIC

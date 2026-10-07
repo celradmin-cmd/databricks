@@ -97,7 +97,7 @@
               }
             ],
             "spec": {
-              "version": 3,
+              "version": 2,
               "widgetType": "counter",
               "encodings": {
                 "value": {
@@ -137,7 +137,7 @@
               }
             ],
             "spec": {
-              "version": 3,
+              "version": 2,
               "widgetType": "counter",
               "encodings": {
                 "value": {
@@ -177,7 +177,7 @@
               }
             ],
             "spec": {
-              "version": 3,
+              "version": 2,
               "widgetType": "counter",
               "encodings": {
                 "value": {
@@ -311,7 +311,6 @@
                   {
                     "fieldName": "pull_price",
                     "displayName": "Pull price",
-                    "type": "number-currency",
                     "format": {
                       "type": "number-currency",
                       "currencyCode": "USD",
