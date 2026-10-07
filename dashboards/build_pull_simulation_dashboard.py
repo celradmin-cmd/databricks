@@ -10,8 +10,8 @@ in `00_celr_odds_config.py` changes, then re-import the regenerated .lvdash.json
 Spec versions are per widget type, and getting one wrong costs you the widget:
 the import keeps the dashboard but replaces the offending widget with "Invalid
 widget definition is imported." The first import of this file lost all three
-counters (emitted at v3 — counters are v2) and the KPI table (a stray `type`
-key on a column, which a v3 table column has no slot for). See SPEC_VERSION.
+counters (emitted at v3 — counters are v2) and every table (a `format` object
+on a column, whose `type` key a v3 table column has no slot for). See SPEC_VERSION.
 
 This machine's Databricks CLI profiles don't reach prod_celr, so neither the
 widget schema nor the queries can be checked from here — import the file and
@@ -104,12 +104,19 @@ MULT_FMT = {"type": "number-plain", "decimalPlaces": {"type": "max", "places": 3
 # ============================================================================
 
 ds_kpi = dataset("ds_kpi", "Tier KPIs", [
-    "SELECT spirit, tier, pull_price, source, n_sessions, total_pulls,",
-    "       total_spent, total_retail_won, net_profit_loss, avg_net_dollars_per_pull,",
-    "       simulated_win_rate, target_win_rate,",
-    "       simulated_payout_multiple, target_payout_multiple,",
+    # Rounded here because table columns can't carry a format (see t_kpi).
+    "SELECT spirit, tier, ROUND(pull_price, 0) AS pull_price, source, n_sessions, total_pulls,",
+    "       ROUND(total_spent, 0) AS total_spent, ROUND(total_retail_won, 0) AS total_retail_won,",
+    "       ROUND(net_profit_loss, 0) AS net_profit_loss,",
+    "       ROUND(avg_net_dollars_per_pull, 0) AS avg_net_dollars_per_pull,",
+    "       ROUND(simulated_win_rate * 100, 1) AS simulated_win_rate,",
+    "       ROUND(target_win_rate * 100, 1) AS target_win_rate,",
+    "       ROUND(simulated_payout_multiple, 3) AS simulated_payout_multiple,",
+    "       ROUND(target_payout_multiple, 3) AS target_payout_multiple,",
     "       avg_losses_before_win, median_losses_before_win, p90_losses_before_win,",
-    "       max_losses_before_win, median_session_net, worst_session_net, best_session_net,",
+    "       max_losses_before_win, ROUND(median_session_net, 0) AS median_session_net,",
+    "       ROUND(worst_session_net, 0) AS worst_session_net,",
+    "       ROUND(best_session_net, 0) AS best_session_net,",
     "       computed_at",
     f"FROM {KPI_TBL}",
     "ORDER BY spirit, tier",
@@ -150,8 +157,10 @@ for tier in SELLABLE_TIERS:
     name = f"ds_walk_t{tier}"
     walkthrough_datasets[tier] = dataset(
         name, f"Tier {tier} (${TIER_PRICE[tier]} pull) — example session, pull by pull", [
-            "SELECT pull_number, bottle_label, retail_value, pull_price, net_dollars,",
-            "       is_win, is_placeholder, cumulative_net, losses_before_this_pull",
+            "SELECT pull_number, bottle_label, ROUND(retail_value, 0) AS retail_value,",
+            "       ROUND(pull_price, 0) AS pull_price, ROUND(net_dollars, 0) AS net_dollars,",
+            "       is_win, is_placeholder, ROUND(cumulative_net, 0) AS cumulative_net,",
+            "       losses_before_this_pull",
             f"FROM {PULLS_TBL}",
             f"WHERE spirit = '{WALKTHROUGH_SPIRIT}' AND tier = {tier}",
             "ORDER BY pull_number",
@@ -183,27 +192,28 @@ overview_layout = [
         {"columns": [
             {"fieldName": "spirit", "displayName": "Spirit"},
             {"fieldName": "tier", "displayName": "Tier"},
-            # No "type" key here: a v3 table column takes its formatting from
-            # "format" alone, and the stray "type" is what the import rejected
-            # with 'spec/encodings/columns/2 has an unknown property "type"'.
-            {"fieldName": "pull_price", "displayName": "Pull price", "format": USD_FMT},
+            # No "format" on table columns: a v3 table column only takes
+            # fieldName/displayName, and the import rejects a format object with
+            # 'spec/encodings/columns/N has an unknown property "type"'. Rounding
+            # and percent scaling happen in ds_kpi / ds_walk_t* instead.
+            {"fieldName": "pull_price", "displayName": "Pull price"},
             {"fieldName": "n_sessions", "displayName": "Sessions sim."},
             {"fieldName": "total_pulls", "displayName": "Total pulls"},
-            {"fieldName": "simulated_win_rate", "displayName": "Win rate (sim)", "format": PCT_FMT},
-            {"fieldName": "target_win_rate", "displayName": "Win rate (target)", "format": PCT_FMT},
-            {"fieldName": "simulated_payout_multiple", "displayName": "Payout x (sim)", "format": MULT_FMT},
-            {"fieldName": "target_payout_multiple", "displayName": "Payout x (target)", "format": MULT_FMT},
+            {"fieldName": "simulated_win_rate", "displayName": "Win rate % (sim)"},
+            {"fieldName": "target_win_rate", "displayName": "Win rate % (target)"},
+            {"fieldName": "simulated_payout_multiple", "displayName": "Payout x (sim)"},
+            {"fieldName": "target_payout_multiple", "displayName": "Payout x (target)"},
             {"fieldName": "avg_losses_before_win", "displayName": "Avg losses before a win"},
             {"fieldName": "median_losses_before_win", "displayName": "Median losses before a win"},
             {"fieldName": "p90_losses_before_win", "displayName": "P90 losses before a win"},
             {"fieldName": "max_losses_before_win", "displayName": "Worst losing streak"},
-            {"fieldName": "avg_net_dollars_per_pull", "displayName": "Avg $ net / pull", "format": USD_FMT},
-            {"fieldName": "median_session_net", "displayName": "Median session net ($)", "format": USD_FMT},
-            {"fieldName": "worst_session_net", "displayName": "Worst 100-pull session ($)", "format": USD_FMT},
-            {"fieldName": "best_session_net", "displayName": "Best 100-pull session ($)", "format": USD_FMT},
-            {"fieldName": "net_profit_loss", "displayName": "Net across all sessions ($)", "format": USD_FMT},
-            {"fieldName": "total_spent", "displayName": "Total spent ($)", "format": USD_FMT},
-            {"fieldName": "total_retail_won", "displayName": "Total retail won ($)", "format": USD_FMT},
+            {"fieldName": "avg_net_dollars_per_pull", "displayName": "Avg $ net / pull"},
+            {"fieldName": "median_session_net", "displayName": "Median session net ($)"},
+            {"fieldName": "worst_session_net", "displayName": "Worst 100-pull session ($)"},
+            {"fieldName": "best_session_net", "displayName": "Best 100-pull session ($)"},
+            {"fieldName": "net_profit_loss", "displayName": "Net across all sessions ($)"},
+            {"fieldName": "total_spent", "displayName": "Total spent ($)"},
+            {"fieldName": "total_retail_won", "displayName": "Total retail won ($)"},
         ]},
     ), 0, 3, 12, 6),
 
@@ -263,12 +273,12 @@ for i, tier in enumerate(SELLABLE_TIERS):
         {"columns": [
             {"fieldName": "pull_number", "displayName": "Pull #"},
             {"fieldName": "bottle_label", "displayName": "Bottle"},
-            {"fieldName": "retail_value", "displayName": "Retail value", "format": USD_FMT},
-            {"fieldName": "pull_price", "displayName": "Paid", "format": USD_FMT},
-            {"fieldName": "net_dollars", "displayName": "Net $", "format": USD_FMT},
+            {"fieldName": "retail_value", "displayName": "Retail value"},
+            {"fieldName": "pull_price", "displayName": "Paid"},
+            {"fieldName": "net_dollars", "displayName": "Net $"},
             {"fieldName": "is_win", "displayName": "Won?"},
             {"fieldName": "is_placeholder", "displayName": "Gap placeholder?"},
-            {"fieldName": "cumulative_net", "displayName": "Running total $", "format": USD_FMT},
+            {"fieldName": "cumulative_net", "displayName": "Running total $"},
             {"fieldName": "losses_before_this_pull", "displayName": "Losses right before this win"},
         ]},
     ), 0, y, 6, row_height))
