@@ -67,8 +67,8 @@ dbutils.widgets.text("gold_schema", "gold", "Gold schema")
 dbutils.widgets.text("app_schema", "app", "App schema")
 dbutils.widgets.dropdown("spirit", "both", ["both", "bourbon", "agave"], "Spirit to check")
 dbutils.widgets.text("gross_margin", "0.35", "Target gross margin against retail (0.35 = 35%)")
-dbutils.widgets.text("floor_depth_per_tier", str(FLOOR_DEPTH_PER_TIER), "Target placements per tier")
-dbutils.widgets.text("min_refills", "2.0", "Alert when reserve covers fewer than this many refills of a cell")
+dbutils.widgets.text("pulls_per_tier_per_day", str(PULLS_PER_TIER_PER_DAY), "Expected pulls per tier per day (sizes cell depth)")
+dbutils.widgets.text("min_refills", "1.0", "Alert when reserve covers fewer than this many refills of a cell")
 dbutils.widgets.dropdown("fail_on_alert", "true", ["true", "false"], "Fail the job when stock is low (drives the job email)")
 
 CATALOG      = dbutils.widgets.get("catalog")
@@ -76,7 +76,7 @@ GOLD         = dbutils.widgets.get("gold_schema")
 APP          = dbutils.widgets.get("app_schema")
 SPIRIT_ARG   = dbutils.widgets.get("spirit")
 GROSS_MARGIN = float(dbutils.widgets.get("gross_margin"))
-FLOOR_DEPTH  = int(dbutils.widgets.get("floor_depth_per_tier"))
+PULLS_PER_DAY = int(dbutils.widgets.get("pulls_per_tier_per_day"))
 MIN_REFILLS  = float(dbutils.widgets.get("min_refills"))
 FAIL_ON_ALERT = dbutils.widgets.get("fail_on_alert") == "true"
 
@@ -176,13 +176,15 @@ for spirit in TARGETS:
 
     for t in TIERS:
         for b in BANDS:
-            target = target_cell_count(b, FLOOR_DEPTH)
+            target = target_cell_count(b, PULLS_PER_DAY)
             in_reserve = coverage.get((t, b), 0)
             on_floor, _tgt, shortfall = gaps.get((t, b), (None, target, 0))
             refills = in_reserve / target if target else 0.0
 
             # Buy enough to close the floor gap AND restore a MIN_REFILLS-deep
-            # bench behind it, minus what the reserve already covers.
+            # bench behind it, minus what the reserve already covers. The target is
+            # already RESTOCK_DAYS of departures, so one refill of bench is one more
+            # restock period of cover.
             want_in_reserve = int(round(MIN_REFILLS * target))
             to_buy = max(0, shortfall + want_in_reserve - in_reserve)
 
@@ -217,6 +219,35 @@ for spirit in TARGETS:
                 "computed_at": now,
             })
 
+# MAGIC ### One bottle fills several cells
+# MAGIC A $105 bottle is a tier 2 band 2 win *and* a tier 1 band 4 big win. Summing
+# MAGIC each cell's shortfall independently would buy it twice. So the list is walked
+# MAGIC most-urgent first, and every bottle bought for a cell is credited to all the
+# MAGIC other cells a bottle at that cell's target value lands in.
+
+# COMMAND ----------
+
+URGENCY_ORDER = {"critical": 0, "high": 1, "watch": 2}
+
+
+def dedupe_shared_bottles(recs):
+    remaining = {(r["spirit"], r["tier"], r["band_idx"]): r["bottles_to_buy"] for r in recs}
+    for r in sorted(recs, key=lambda r: (URGENCY_ORDER[r["urgency"]], -r["band_probability"])):
+        key = (r["spirit"], r["tier"], r["band_idx"])
+        buy = max(0, remaining[key])
+        r["covered_by_other_cells"] = buy == 0 and r["bottles_to_buy"] > 0
+        r["bottles_to_buy"] = buy
+        r["line_budget"] = float(r["max_buy_price"] * buy)
+        for (t2, _m, b2) in eligible_tiers(r["target_retail_value"]):
+            other = (r["spirit"], t2, b2)
+            if other != key and other in remaining:
+                remaining[other] -= buy
+        remaining[key] = 0
+    return recs
+
+
+recommendations = dedupe_shared_bottles(recommendations)
+
 # COMMAND ----------
 
 # MAGIC %md
@@ -226,7 +257,6 @@ for spirit in TARGETS:
 
 # COMMAND ----------
 
-URGENCY_ORDER = {"critical": 0, "high": 1, "watch": 2}
 recommendations.sort(key=lambda r: (URGENCY_ORDER[r["urgency"]], -r["line_budget"]))
 
 lines = []
@@ -268,6 +298,9 @@ else:
                      f"{'   SHORT ' + str(r['floor_shortfall']) if r['floor_shortfall'] else ''}")
         lines.append(f"    in reserve:{r['bottles_in_reserve']:>4}  "
                      f"({r['refills_of_cover']:.1f} refills of cover)")
+        if r["covered_by_other_cells"]:
+            lines.append("    BUY 0 — the bottles bought for another cell above also land here")
+            continue
         lines.append(f"    BUY {r['bottles_to_buy']} bottles worth ~${r['target_retail_value']:,.0f} retail")
         lines.append(f"    MAX PRICE ${r['max_buy_price']:,.0f} each   "
                      f"(line budget ${r['line_budget']:,.0f})")

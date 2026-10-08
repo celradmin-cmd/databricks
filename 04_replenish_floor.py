@@ -81,7 +81,7 @@ dbutils.widgets.text("catalog", "prod_celr", "Unity Catalog")
 dbutils.widgets.text("gold_schema", "gold", "Gold schema")
 dbutils.widgets.text("app_schema", "app", "App schema")
 dbutils.widgets.dropdown("spirit", "both", ["both", "bourbon", "agave"], "Spirit to replenish")
-dbutils.widgets.text("floor_depth_per_tier", str(FLOOR_DEPTH_PER_TIER), "Target placements per tier")
+dbutils.widgets.text("pulls_per_tier_per_day", str(PULLS_PER_TIER_PER_DAY), "Expected pulls per tier per day (sizes cell depth)")
 dbutils.widgets.text("max_pool_rows", "50000", "Safety cap on rows pulled to the driver")
 dbutils.widgets.dropdown("dry_run", "true", ["true", "false"], "Dry run (decide + report, no writes)")
 
@@ -89,7 +89,7 @@ CATALOG      = dbutils.widgets.get("catalog")
 GOLD         = dbutils.widgets.get("gold_schema")
 APP          = dbutils.widgets.get("app_schema")
 SPIRIT_ARG   = dbutils.widgets.get("spirit")
-FLOOR_DEPTH  = int(dbutils.widgets.get("floor_depth_per_tier"))
+PULLS_PER_DAY = int(dbutils.widgets.get("pulls_per_tier_per_day"))
 MAX_POOL     = int(dbutils.widgets.get("max_pool_rows"))
 DRY_RUN      = dbutils.widgets.get("dry_run") == "true"
 
@@ -116,7 +116,7 @@ APP_SYNC_SLOTS = 5   # see 02_build_bourbon_app_floor_weighted.py — all 5 tier
 TIERS = sorted(SELLABLE_TIERS)
 BANDS = list(range(len(ODDS_CURVE)))
 
-print(f"catalog={CATALOG} spirits={TARGETS} floor_depth_per_tier={FLOOR_DEPTH} dry_run={DRY_RUN}")
+print(f"catalog={CATALOG} spirits={TARGETS} pulls_per_tier_per_day={PULLS_PER_DAY} dry_run={DRY_RUN}")
 
 # COMMAND ----------
 
@@ -487,7 +487,7 @@ def verify(floor_df):
             flag = "OK" if abs(pct - tgt) < 0.05 else "!!"
             if flag == "!!":
                 ok = False
-            want = target_cell_count(b, FLOOR_DEPTH)
+            want = target_cell_count(b, PULLS_PER_DAY)
             depth = "" if n >= want else f"  SHORT {want - n}"
             # The cell's weighted-average multiple vs. where cell_weights() aims it.
             # "HIGH" = even the cheapest bottles here sit above the band target, so
@@ -634,7 +634,7 @@ for spirit in TARGETS:
     for t in TIERS:
         for b in BANDS:
             _w, n = band_totals.get((t, b), (0, 0))
-            want = target_cell_count(b, FLOOR_DEPTH)
+            want = target_cell_count(b, PULLS_PER_DAY)
             if n < want:
                 all_gaps.append((
                     spirit, t, TIER_PRICE[t], b, band_label(t, b),

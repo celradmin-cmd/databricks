@@ -296,33 +296,53 @@ def target_prob(band_idx):
 # MAGIC ### How deep each cell should be stocked
 # MAGIC Odds come from `weight`, not from counts, so a cell with one bottle has exactly
 # MAGIC the same probability as a cell with fifty. Depth buys two other things:
-# MAGIC **variety** (players in the 39% band shouldn't keep seeing the same bottle)
+# MAGIC **variety** (players in the 42% band shouldn't keep seeing the same bottle)
 # MAGIC and **headroom** (a cell that empties takes its band's probability to zero and
 # MAGIC silently reshapes the whole curve).
 # MAGIC
-# MAGIC So target depth is proportional to how often a cell is drawn from, with a hard
-# MAGIC minimum so even the 0.3% grail band can't run dry. This is the single
-# MAGIC definition of "stocked" used by both `04_replenish_floor.py` (what to top up)
-# MAGIC and `05_inventory_reorder_alert.py` (what to buy).
+# MAGIC Depth is sized by **how fast a cell empties**, not by how often it is drawn.
+# MAGIC A buyback leaves the bottle on the floor, so the only thing that removes one is
+# MAGIC a ship/store — `SHIP_RATE` of pulls. A cell therefore loses about
+# MAGIC `pulls_per_day x band probability x SHIP_RATE` bottles a day, and it needs
+# MAGIC enough to last `RESTOCK_DAYS` until the next delivery, with a hard minimum so
+# MAGIC even the 0.05% grail band can't run dry and every cell has a cheap bottle for
+# MAGIC `cell_weights()` to lean on. This is the single definition of "stocked" used by
+# MAGIC both `04_replenish_floor.py` (what is short) and `05_inventory_reorder_alert.py`
+# MAGIC (what to buy).
+# MAGIC
+# MAGIC The old rule (`band probability x 250` per tier) sized cells as if odds still
+# MAGIC came from row counts, and asked for ~3,300 bottles to stock what a few hundred
+# MAGIC cover.
 
 # COMMAND ----------
 
-# Target placements per tier. Four sellable tiers at 250 = 1,000 placements; at an
-# average of ~2.5 tiers per bottle that is roughly 400 physical bottles on the floor.
-FLOOR_DEPTH_PER_TIER = 250
+# Expected pulls per tier per day. The one number here that is a business forecast,
+# not a design choice — override it with the `pulls_per_tier_per_day` widget in
+# 04/05 once real volume is known.
+PULLS_PER_TIER_PER_DAY = 100
 
-# No cell ever goes below this, however rare its band. Two so that a single ship
-# order can never empty one outright.
-MIN_BOTTLES_PER_CELL = 2
+# Share of pulls that take the bottle off the floor (shipped or vaulted). The other
+# 90-95% are bought back and the bottle stays on the floor. High end of 5-10%.
+SHIP_RATE = 0.10
+
+# Days of departures a cell should be able to absorb before a restock lands.
+RESTOCK_DAYS = 7
+
+# No cell ever goes below this, however rare its band: one ship can't empty it,
+# and there is spread for cell_weights() to tilt toward the cheaper bottle.
+MIN_BOTTLES_PER_CELL = 3
 
 # Below this fraction of target, a cell is "low" and the reorder alert fires.
 REORDER_THRESHOLD = 0.50
 
 
-def target_cell_count(band_idx, depth_per_tier=None):
-    """How many bottles cell (any tier, this band) should hold when fully stocked."""
-    depth = FLOOR_DEPTH_PER_TIER if depth_per_tier is None else depth_per_tier
-    return max(MIN_BOTTLES_PER_CELL, int(round(target_prob(band_idx) * depth)))
+def target_cell_count(band_idx, pulls_per_day=None):
+    """How many bottles cell (any tier, this band) should hold when fully stocked:
+    RESTOCK_DAYS of expected departures, never fewer than MIN_BOTTLES_PER_CELL."""
+    import math
+    ppd = PULLS_PER_TIER_PER_DAY if pulls_per_day is None else pulls_per_day
+    departures = ppd * target_prob(band_idx) * SHIP_RATE * RESTOCK_DAYS
+    return max(MIN_BOTTLES_PER_CELL, int(math.ceil(departures)))
 
 
 def max_buy_price(tier, band_idx, gross_margin):
