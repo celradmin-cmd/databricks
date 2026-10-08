@@ -340,9 +340,12 @@ page_walkthrough = {
 # Page 3 — Profits: the same simulation from the house's side of the counter
 # ============================================================================
 # Everything above is the player's view (net = retail won - spent). Here it's
-# flipped: revenue is what players paid for pulls, "retail given out" is the
-# catalog retail_value (app.*_weighted, i.e. gold catalog) of every bottle those
-# pulls handed out, and house profit is the difference. Payout x = retail given
+# flipped: revenue is what players paid for pulls, "paid out" is the catalog
+# retail_value (app.*_weighted, i.e. gold catalog) of every bottle those pulls
+# landed on, and house profit is the difference. That's exact for the app's two
+# outcomes: ~90-95% of bottles are bought back at 100% of retail as wallet credit
+# the player can withdraw as cash (the bottle stays in inventory), and the
+# ~5-10% shipped/vaulted cost the house the bottle itself, valued here at retail. Payout x = retail given
 # out / revenue — the same number 00_celr_odds_config designs to (target ~0.89x);
 # anything at or above 1.0x means the house gives away more retail than it takes in.
 
@@ -381,7 +384,7 @@ ds_profit_long = dataset("ds_profit_long", "Revenue vs. retail given out (long f
     "SELECT concat(spirit, ' t', tier) AS series, 'Revenue (pulls sold)' AS metric, total_spent AS dollars",
     f"FROM {KPI_TBL}",
     "UNION ALL",
-    "SELECT concat(spirit, ' t', tier), 'Retail value of bottles given out', total_retail_won",
+    "SELECT concat(spirit, ' t', tier), 'Paid out (buybacks + shipped bottles)', total_retail_won",
     f"FROM {KPI_TBL}",
     "ORDER BY 1, 2",
 ])
@@ -407,7 +410,7 @@ profits_layout = [
         ("pull_price", "Pull price", "usd"),
         ("total_pulls", "Pulls sold", "integer"),
         ("revenue", "Revenue: pulls sold ($)", "usd"),
-        ("retail_given_out", "Retail value of bottles given out ($)", "usd"),
+        ("retail_given_out", "Paid out: buybacks + shipped, at retail ($)", "usd"),
         ("avg_bottle_retail", "Avg bottle retail / pull ($)", "usd"),
         ("payout_multiple", "Payout x (sim)", "mult"),
         ("target_payout_multiple", "Payout x (target)", "mult"),
@@ -440,7 +443,7 @@ profits_layout = [
     ), 6, 9, 6, 6),
 
     laid_out(widget(
-        "b_rev_vs_cost", "Revenue vs. retail value given out, by tier", "bar", "ds_profit_long",
+        "b_rev_vs_cost", "Revenue vs. paid out (buybacks + shipped), by tier", "bar", "ds_profit_long",
         ["series", "metric", "dollars"],
         {
             "x": {"fieldName": "series", "scale": {"type": "categorical"}, "displayName": "Spirit / tier"},

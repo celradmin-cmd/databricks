@@ -88,7 +88,7 @@
       "name": "ds_profit_long",
       "displayName": "Revenue vs. retail given out (long form)",
       "queryLines": [
-        "SELECT concat(spirit, ' t', tier) AS series, 'Revenue (pulls sold)' AS metric, total_spent AS dollars\nFROM prod_celr.gold.pull_simulation_tier_kpi\nUNION ALL\nSELECT concat(spirit, ' t', tier), 'Retail value of bottles given out', total_retail_won\nFROM prod_celr.gold.pull_simulation_tier_kpi\nORDER BY 1, 2"
+        "SELECT concat(spirit, ' t', tier) AS series, 'Revenue (pulls sold)' AS metric, total_spent AS dollars\nFROM prod_celr.gold.pull_simulation_tier_kpi\nUNION ALL\nSELECT concat(spirit, ' t', tier), 'Paid out (buybacks + shipped bottles)', total_retail_won\nFROM prod_celr.gold.pull_simulation_tier_kpi\nORDER BY 1, 2"
       ]
     },
     {
@@ -1463,14 +1463,14 @@
                     "displayAs": "number",
                     "visible": true,
                     "order": 100005,
-                    "title": "Retail value of bottles given out ($)",
+                    "title": "Paid out: buybacks + shipped, at retail ($)",
                     "allowSearch": false,
                     "alignContent": "right",
                     "allowHTML": false,
                     "highlightLinks": false,
                     "useMonospaceFont": false,
                     "preserveWhitespace": false,
-                    "displayName": "Retail value of bottles given out ($)",
+                    "displayName": "Paid out: buybacks + shipped, at retail ($)",
                     "numberFormat": "$0,0"
                   },
                   {
@@ -1930,7 +1930,7 @@
                 }
               },
               "frame": {
-                "title": "Revenue vs. retail value given out, by tier",
+                "title": "Revenue vs. paid out (buybacks + shipped), by tier",
                 "showTitle": true
               }
             }
