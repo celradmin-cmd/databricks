@@ -118,7 +118,7 @@ Two draw modes, set by the `source` widget:
 `dashboards/pull_simulation.lvdash.json` is a ready-to-import Lakeview dashboard
 over those four tables — three pages, "Overview" (KPI table, win-rate-vs-target bar,
 streak-distribution bar, session-net variance), "Profits" (the house's side:
-revenue, bottle cost, house profit and margin per tier, plus how often a session
+revenue, retail value given out, payout x, house profit and margin per tier, plus how often a session
 loses the house money) and "Walkthrough" (one table + one
 running-total line chart per tier, pull by pull, for a single bourbon session —
 literally "3 losses, then a $62 win on a $50 pull").

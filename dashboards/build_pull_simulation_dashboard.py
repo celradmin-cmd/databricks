@@ -103,6 +103,8 @@ COL_KINDS = {
     "integer": ("integer", "number", "0,0"),
     "float": ("float", "number", "0,0.0"),
     "usd": ("float", "number", "$0,0"),
+    # The table's "%" pattern only appends the sign — it does NOT multiply by 100
+    # the way numeral.js does — so a pct column's dataset must already be 0-100.
     "pct": ("float", "number", "0.0%"),
     "mult": ("float", "number", "0.000"),
     "boolean": ("boolean", "boolean", None),
@@ -166,7 +168,8 @@ MULT_FMT = {"type": "number-plain", "decimalPlaces": {"type": "max", "places": 3
 ds_kpi = dataset("ds_kpi", "Tier KPIs", [
     "SELECT spirit, tier, pull_price, source, n_sessions, total_pulls,",
     "       total_spent, total_retail_won, net_profit_loss, avg_net_dollars_per_pull,",
-    "       simulated_win_rate, target_win_rate,",
+    "       100 * simulated_win_rate AS simulated_win_rate,",
+    "       100 * target_win_rate AS target_win_rate,  -- 0-100 for t_kpi's pct columns",
     "       simulated_payout_multiple, target_payout_multiple,",
     "       avg_losses_before_win, median_losses_before_win, p90_losses_before_win,",
     "       max_losses_before_win, median_session_net, worst_session_net, best_session_net,",
@@ -337,21 +340,29 @@ page_walkthrough = {
 # Page 3 — Profits: the same simulation from the house's side of the counter
 # ============================================================================
 # Everything above is the player's view (net = retail won - spent). Here it's
-# flipped: revenue is what players paid for pulls, cost is the retail value of
-# the bottles handed out, and house profit is the difference.
+# flipped: revenue is what players paid for pulls, "retail given out" is the
+# catalog retail_value (app.*_weighted, i.e. gold catalog) of every bottle those
+# pulls handed out, and house profit is the difference. Payout x = retail given
+# out / revenue — the same number 00_celr_odds_config designs to (target ~0.89x);
+# anything at or above 1.0x means the house gives away more retail than it takes in.
 
 ds_profit_tier = dataset("ds_profit_tier", "House profit by tier", [
     "SELECT k.spirit, k.tier, concat(k.spirit, ' t', k.tier) AS series, k.pull_price,",
-    "       k.total_pulls, k.total_spent AS revenue, k.total_retail_won AS bottle_cost,",
+    "       k.total_pulls, k.total_spent AS revenue, k.total_retail_won AS retail_given_out,",
+    "       k.total_retail_won / k.total_pulls AS avg_bottle_retail,",
+    "       k.simulated_payout_multiple AS payout_multiple,",
+    "       k.target_payout_multiple,",
     "       k.total_spent - k.total_retail_won AS house_profit,",
     "       (k.total_spent - k.total_retail_won) / k.total_spent AS house_margin,",
+    "       100 * (k.total_spent - k.total_retail_won) / k.total_spent AS house_margin_pct,",
     "       (k.total_spent - k.total_retail_won) / k.total_pulls AS house_profit_per_pull,",
     "       -k.median_session_net AS median_session_profit,",
     "       -k.best_session_net AS worst_session_profit,",
     "       s.pct_sessions_house_lost",
     f"FROM {KPI_TBL} k",
     "LEFT JOIN (",
-    "  SELECT spirit, tier, AVG(CASE WHEN net_profit_loss > 0 THEN 1.0 ELSE 0.0 END) AS pct_sessions_house_lost",
+    "  SELECT spirit, tier,",
+    "         100 * AVG(CASE WHEN net_profit_loss > 0 THEN 1.0 ELSE 0.0 END) AS pct_sessions_house_lost",
     f"  FROM {SESSIONS_TBL} GROUP BY spirit, tier",
     ") s ON s.spirit = k.spirit AND s.tier = k.tier",
     "ORDER BY k.spirit, k.tier",
@@ -366,11 +377,11 @@ ds_profit_totals = dataset("ds_profit_totals", "House profit totals", [
     f"FROM {KPI_TBL}",
 ])
 
-ds_profit_long = dataset("ds_profit_long", "Revenue vs. bottle cost (long form)", [
+ds_profit_long = dataset("ds_profit_long", "Revenue vs. retail given out (long form)", [
     "SELECT concat(spirit, ' t', tier) AS series, 'Revenue (pulls sold)' AS metric, total_spent AS dollars",
     f"FROM {KPI_TBL}",
     "UNION ALL",
-    "SELECT concat(spirit, ' t', tier), 'Bottle cost (retail given out)', total_retail_won",
+    "SELECT concat(spirit, ' t', tier), 'Retail value of bottles given out', total_retail_won",
     f"FROM {KPI_TBL}",
     "ORDER BY 1, 2",
 ])
@@ -395,10 +406,13 @@ profits_layout = [
         ("tier", "Tier", "integer"),
         ("pull_price", "Pull price", "usd"),
         ("total_pulls", "Pulls sold", "integer"),
-        ("revenue", "Revenue ($)", "usd"),
-        ("bottle_cost", "Bottle cost ($)", "usd"),
+        ("revenue", "Revenue: pulls sold ($)", "usd"),
+        ("retail_given_out", "Retail value of bottles given out ($)", "usd"),
+        ("avg_bottle_retail", "Avg bottle retail / pull ($)", "usd"),
+        ("payout_multiple", "Payout x (sim)", "mult"),
+        ("target_payout_multiple", "Payout x (target)", "mult"),
         ("house_profit", "House profit ($)", "usd"),
-        ("house_margin", "Margin", "pct"),
+        ("house_margin_pct", "Margin", "pct"),
         ("house_profit_per_pull", "Profit / pull ($)", "usd"),
         ("median_session_profit", "Median session profit ($)", "usd"),
         ("worst_session_profit", "Worst session for the house ($)", "usd"),
@@ -426,7 +440,7 @@ profits_layout = [
     ), 6, 9, 6, 6),
 
     laid_out(widget(
-        "b_rev_vs_cost", "Revenue vs. bottle cost, by tier", "bar", "ds_profit_long",
+        "b_rev_vs_cost", "Revenue vs. retail value given out, by tier", "bar", "ds_profit_long",
         ["series", "metric", "dollars"],
         {
             "x": {"fieldName": "series", "scale": {"type": "categorical"}, "displayName": "Spirit / tier"},

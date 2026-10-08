@@ -4,7 +4,7 @@
       "name": "ds_kpi",
       "displayName": "Tier KPIs",
       "queryLines": [
-        "SELECT spirit, tier, pull_price, source, n_sessions, total_pulls,\n       total_spent, total_retail_won, net_profit_loss, avg_net_dollars_per_pull,\n       simulated_win_rate, target_win_rate,\n       simulated_payout_multiple, target_payout_multiple,\n       avg_losses_before_win, median_losses_before_win, p90_losses_before_win,\n       max_losses_before_win, median_session_net, worst_session_net, best_session_net,\n       computed_at\nFROM prod_celr.gold.pull_simulation_tier_kpi\nORDER BY spirit, tier"
+        "SELECT spirit, tier, pull_price, source, n_sessions, total_pulls,\n       total_spent, total_retail_won, net_profit_loss, avg_net_dollars_per_pull,\n       100 * simulated_win_rate AS simulated_win_rate,\n       100 * target_win_rate AS target_win_rate,  -- 0-100 for t_kpi's pct columns\n       simulated_payout_multiple, target_payout_multiple,\n       avg_losses_before_win, median_losses_before_win, p90_losses_before_win,\n       max_losses_before_win, median_session_net, worst_session_net, best_session_net,\n       computed_at\nFROM prod_celr.gold.pull_simulation_tier_kpi\nORDER BY spirit, tier"
       ]
     },
     {
@@ -74,7 +74,7 @@
       "name": "ds_profit_tier",
       "displayName": "House profit by tier",
       "queryLines": [
-        "SELECT k.spirit, k.tier, concat(k.spirit, ' t', k.tier) AS series, k.pull_price,\n       k.total_pulls, k.total_spent AS revenue, k.total_retail_won AS bottle_cost,\n       k.total_spent - k.total_retail_won AS house_profit,\n       (k.total_spent - k.total_retail_won) / k.total_spent AS house_margin,\n       (k.total_spent - k.total_retail_won) / k.total_pulls AS house_profit_per_pull,\n       -k.median_session_net AS median_session_profit,\n       -k.best_session_net AS worst_session_profit,\n       s.pct_sessions_house_lost\nFROM prod_celr.gold.pull_simulation_tier_kpi k\nLEFT JOIN (\n  SELECT spirit, tier, AVG(CASE WHEN net_profit_loss > 0 THEN 1.0 ELSE 0.0 END) AS pct_sessions_house_lost\n  FROM prod_celr.gold.pull_simulation_sessions GROUP BY spirit, tier\n) s ON s.spirit = k.spirit AND s.tier = k.tier\nORDER BY k.spirit, k.tier"
+        "SELECT k.spirit, k.tier, concat(k.spirit, ' t', k.tier) AS series, k.pull_price,\n       k.total_pulls, k.total_spent AS revenue, k.total_retail_won AS retail_given_out,\n       k.total_retail_won / k.total_pulls AS avg_bottle_retail,\n       k.simulated_payout_multiple AS payout_multiple,\n       k.target_payout_multiple,\n       k.total_spent - k.total_retail_won AS house_profit,\n       (k.total_spent - k.total_retail_won) / k.total_spent AS house_margin,\n       100 * (k.total_spent - k.total_retail_won) / k.total_spent AS house_margin_pct,\n       (k.total_spent - k.total_retail_won) / k.total_pulls AS house_profit_per_pull,\n       -k.median_session_net AS median_session_profit,\n       -k.best_session_net AS worst_session_profit,\n       s.pct_sessions_house_lost\nFROM prod_celr.gold.pull_simulation_tier_kpi k\nLEFT JOIN (\n  SELECT spirit, tier,\n         100 * AVG(CASE WHEN net_profit_loss > 0 THEN 1.0 ELSE 0.0 END) AS pct_sessions_house_lost\n  FROM prod_celr.gold.pull_simulation_sessions GROUP BY spirit, tier\n) s ON s.spirit = k.spirit AND s.tier = k.tier\nORDER BY k.spirit, k.tier"
       ]
     },
     {
@@ -86,9 +86,9 @@
     },
     {
       "name": "ds_profit_long",
-      "displayName": "Revenue vs. bottle cost (long form)",
+      "displayName": "Revenue vs. retail given out (long form)",
       "queryLines": [
-        "SELECT concat(spirit, ' t', tier) AS series, 'Revenue (pulls sold)' AS metric, total_spent AS dollars\nFROM prod_celr.gold.pull_simulation_tier_kpi\nUNION ALL\nSELECT concat(spirit, ' t', tier), 'Bottle cost (retail given out)', total_retail_won\nFROM prod_celr.gold.pull_simulation_tier_kpi\nORDER BY 1, 2"
+        "SELECT concat(spirit, ' t', tier) AS series, 'Revenue (pulls sold)' AS metric, total_spent AS dollars\nFROM prod_celr.gold.pull_simulation_tier_kpi\nUNION ALL\nSELECT concat(spirit, ' t', tier), 'Retail value of bottles given out', total_retail_won\nFROM prod_celr.gold.pull_simulation_tier_kpi\nORDER BY 1, 2"
       ]
     },
     {
@@ -1257,16 +1257,28 @@
                       "expression": "`revenue`"
                     },
                     {
-                      "name": "bottle_cost",
-                      "expression": "`bottle_cost`"
+                      "name": "retail_given_out",
+                      "expression": "`retail_given_out`"
+                    },
+                    {
+                      "name": "avg_bottle_retail",
+                      "expression": "`avg_bottle_retail`"
+                    },
+                    {
+                      "name": "payout_multiple",
+                      "expression": "`payout_multiple`"
+                    },
+                    {
+                      "name": "target_payout_multiple",
+                      "expression": "`target_payout_multiple`"
                     },
                     {
                       "name": "house_profit",
                       "expression": "`house_profit`"
                     },
                     {
-                      "name": "house_margin",
-                      "expression": "`house_margin`"
+                      "name": "house_margin_pct",
+                      "expression": "`house_margin_pct`"
                     },
                     {
                       "name": "house_profit_per_pull",
@@ -1423,18 +1435,18 @@
                     "displayAs": "number",
                     "visible": true,
                     "order": 100004,
-                    "title": "Revenue ($)",
+                    "title": "Revenue: pulls sold ($)",
                     "allowSearch": false,
                     "alignContent": "right",
                     "allowHTML": false,
                     "highlightLinks": false,
                     "useMonospaceFont": false,
                     "preserveWhitespace": false,
-                    "displayName": "Revenue ($)",
+                    "displayName": "Revenue: pulls sold ($)",
                     "numberFormat": "$0,0"
                   },
                   {
-                    "fieldName": "bottle_cost",
+                    "fieldName": "retail_given_out",
                     "booleanValues": [
                       "false",
                       "true"
@@ -1451,15 +1463,99 @@
                     "displayAs": "number",
                     "visible": true,
                     "order": 100005,
-                    "title": "Bottle cost ($)",
+                    "title": "Retail value of bottles given out ($)",
                     "allowSearch": false,
                     "alignContent": "right",
                     "allowHTML": false,
                     "highlightLinks": false,
                     "useMonospaceFont": false,
                     "preserveWhitespace": false,
-                    "displayName": "Bottle cost ($)",
+                    "displayName": "Retail value of bottles given out ($)",
                     "numberFormat": "$0,0"
+                  },
+                  {
+                    "fieldName": "avg_bottle_retail",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100006,
+                    "title": "Avg bottle retail / pull ($)",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Avg bottle retail / pull ($)",
+                    "numberFormat": "$0,0"
+                  },
+                  {
+                    "fieldName": "payout_multiple",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100007,
+                    "title": "Payout x (sim)",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Payout x (sim)",
+                    "numberFormat": "0.000"
+                  },
+                  {
+                    "fieldName": "target_payout_multiple",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100008,
+                    "title": "Payout x (target)",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Payout x (target)",
+                    "numberFormat": "0.000"
                   },
                   {
                     "fieldName": "house_profit",
@@ -1478,7 +1574,7 @@
                     "type": "float",
                     "displayAs": "number",
                     "visible": true,
-                    "order": 100006,
+                    "order": 100009,
                     "title": "House profit ($)",
                     "allowSearch": false,
                     "alignContent": "right",
@@ -1490,7 +1586,7 @@
                     "numberFormat": "$0,0"
                   },
                   {
-                    "fieldName": "house_margin",
+                    "fieldName": "house_margin_pct",
                     "booleanValues": [
                       "false",
                       "true"
@@ -1506,7 +1602,7 @@
                     "type": "float",
                     "displayAs": "number",
                     "visible": true,
-                    "order": 100007,
+                    "order": 100010,
                     "title": "Margin",
                     "allowSearch": false,
                     "alignContent": "right",
@@ -1534,7 +1630,7 @@
                     "type": "float",
                     "displayAs": "number",
                     "visible": true,
-                    "order": 100008,
+                    "order": 100011,
                     "title": "Profit / pull ($)",
                     "allowSearch": false,
                     "alignContent": "right",
@@ -1562,7 +1658,7 @@
                     "type": "float",
                     "displayAs": "number",
                     "visible": true,
-                    "order": 100009,
+                    "order": 100012,
                     "title": "Median session profit ($)",
                     "allowSearch": false,
                     "alignContent": "right",
@@ -1590,7 +1686,7 @@
                     "type": "float",
                     "displayAs": "number",
                     "visible": true,
-                    "order": 100010,
+                    "order": 100013,
                     "title": "Worst session for the house ($)",
                     "allowSearch": false,
                     "alignContent": "right",
@@ -1618,7 +1714,7 @@
                     "type": "float",
                     "displayAs": "number",
                     "visible": true,
-                    "order": 100011,
+                    "order": 100014,
                     "title": "Sessions the house lost",
                     "allowSearch": false,
                     "alignContent": "right",
@@ -1834,7 +1930,7 @@
                 }
               },
               "frame": {
-                "title": "Revenue vs. bottle cost, by tier",
+                "title": "Revenue vs. retail value given out, by tier",
                 "showTitle": true
               }
             }
