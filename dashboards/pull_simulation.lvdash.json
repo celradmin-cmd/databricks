@@ -1010,6 +1010,9 @@
               "frame": {
                 "title": "Win rate: simulated vs. the configured target",
                 "showTitle": true
+              },
+              "mark": {
+                "layout": "group"
               }
             }
           },

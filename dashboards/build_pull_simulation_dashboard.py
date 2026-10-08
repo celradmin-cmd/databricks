@@ -65,7 +65,8 @@ DEFAULT_SPEC_VERSION = 3
 
 
 def widget(name, title, widget_type, dataset_name, fields, encodings, query_name="main_query",
-           disaggregated=True):
+           disaggregated=True, mark=None):
+    spec_extra = {"mark": mark} if mark else {}
     return {
         "widget": {
             "name": name,
@@ -82,6 +83,7 @@ def widget(name, title, widget_type, dataset_name, fields, encodings, query_name
                 "widgetType": widget_type,
                 "encodings": encodings,
                 "frame": {"title": title, "showTitle": True},
+                **spec_extra,
             },
         },
     }
@@ -273,6 +275,7 @@ overview_layout = [
                   "format": PCT_FMT},
             "color": {"fieldName": "metric", "scale": {"type": "categorical"}, "displayName": "Metric"},
         },
+        mark={"layout": "group"},  # side by side; the default stacks sim on top of target
     ), 0, 9, 6, 6),
 
     laid_out(widget(
