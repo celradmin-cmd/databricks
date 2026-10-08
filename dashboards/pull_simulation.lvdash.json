@@ -11,7 +11,7 @@
       "name": "ds_kpi_totals",
       "displayName": "Run totals",
       "queryLines": [
-        "SELECT SUM(total_pulls) AS total_pulls_simulated, SUM(n_sessions) AS total_sessions,\n       MAX(computed_at) AS last_computed, MAX(source) AS source\nFROM prod_celr.gold.pull_simulation_tier_kpi"
+        "SELECT SUM(total_pulls) AS total_pulls_simulated, SUM(n_sessions) AS total_sessions,\n       MAX(computed_at) AS last_computed, MAX(source) AS source, MAX(seed) AS seed\nFROM prod_celr.gold.pull_simulation_tier_kpi"
       ]
     },
     {
@@ -224,6 +224,46 @@
           },
           "position": {
             "x": 4,
+            "y": 0,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "c_seed",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_kpi_totals",
+                  "fields": [
+                    {
+                      "name": "seed",
+                      "expression": "`seed`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "seed",
+                  "displayName": "Random seed (replay with this)"
+                }
+              },
+              "frame": {
+                "title": "Random seed (replay with this)",
+                "showTitle": true
+              }
+            }
+          },
+          "position": {
+            "x": 6,
             "y": 0,
             "width": 2,
             "height": 3

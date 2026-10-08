@@ -180,7 +180,7 @@ ds_kpi = dataset("ds_kpi", "Tier KPIs", [
 
 ds_kpi_totals = dataset("ds_kpi_totals", "Run totals", [
     "SELECT SUM(total_pulls) AS total_pulls_simulated, SUM(n_sessions) AS total_sessions,",
-    "       MAX(computed_at) AS last_computed, MAX(source) AS source",
+    "       MAX(computed_at) AS last_computed, MAX(source) AS source, MAX(seed) AS seed",
     f"FROM {KPI_TBL}",
 ])
 
@@ -236,6 +236,10 @@ overview_layout = [
     laid_out(counter("c_last_run", "Simulation last run", "ds_kpi_totals", "last_computed",
                       fmt={"type": "date-time"}),
              4, 0, 2, 3),
+    # Changes every run unless 06 was given a fixed random_seed — if this and the
+    # numbers stay put across runs, the seed widget is pinned.
+    laid_out(counter("c_seed", "Random seed (replay with this)", "ds_kpi_totals", "seed"),
+             6, 0, 2, 3),
 
     laid_out(table("t_kpi", "Win / lose by tier — the core table", "ds_kpi", [
         ("spirit", "Spirit", "string"),

@@ -111,7 +111,13 @@ Two draw modes, set by the `source` widget:
 - `theoretical` — samples `ODDS_CURVE` directly, independent of current stock. Use
   this to demo the *designed* game, or as a check when the floor is thin: on this
   setting the simulated win rate/payout should converge to `00`'s targets as
-  `n_sessions` grows, run after run, with the same `random_seed`.
+  `n_sessions` grows.
+
+`random_seed` is blank by default, so every run draws a fresh sequence and the
+numbers move a little run to run (they used to be pinned to seed 42, which made
+every run against the same floor identical). The seed each run used is stored in
+`pull_simulation_tier_kpi.seed` and shown on the dashboard; put it back in the
+widget to replay that exact run.
 
 ### Dashboard
 

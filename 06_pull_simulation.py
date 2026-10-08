@@ -60,8 +60,10 @@ dbutils.widgets.dropdown("source", "live_floor", ["live_floor", "theoretical"],
 dbutils.widgets.text("pulls_per_session", "100", "Pulls in one simulated session (one person's night)")
 dbutils.widgets.text("n_sessions", "1000", "Independent sessions per tier (statistical depth for the dashboard)")
 dbutils.widgets.text("example_session_id", "0", "Which session (0-indexed) is kept pull-by-pull for the walkthrough table")
-dbutils.widgets.text("random_seed", "42", "Seed — same seed + same floor = same simulation, for reproducible demos")
+dbutils.widgets.text("random_seed", "", "Seed — blank = fresh random run; set one (e.g. a past run's seed) to replay it exactly")
 dbutils.widgets.dropdown("dry_run", "false", ["true", "false"], "Dry run (report only, no writes)")
+
+import random
 
 CATALOG     = dbutils.widgets.get("catalog")
 GOLD        = dbutils.widgets.get("gold_schema")
@@ -71,7 +73,11 @@ SOURCE      = dbutils.widgets.get("source")
 PULLS_PER_SESSION = int(dbutils.widgets.get("pulls_per_session"))
 N_SESSIONS  = int(dbutils.widgets.get("n_sessions"))
 EXAMPLE_SESSION_ID = int(dbutils.widgets.get("example_session_id"))
-SEED        = int(dbutils.widgets.get("random_seed"))
+# Blank seed = a new one every run. A fixed default (it used to be 42) made every
+# run against the same floor produce identical numbers. The seed actually used is
+# written to the KPI table, so any run can still be replayed exactly.
+_seed_arg   = dbutils.widgets.get("random_seed").strip()
+SEED        = int(_seed_arg) if _seed_arg else random.SystemRandom().randrange(2**31)
 DRY_RUN     = dbutils.widgets.get("dry_run") == "true"
 
 if not (0 <= EXAMPLE_SESSION_ID < N_SESSIONS):
@@ -103,7 +109,6 @@ print(f"catalog={CATALOG} spirits={TARGETS} source={SOURCE} "
 
 # COMMAND ----------
 
-import random
 from pyspark.sql import functions as F
 
 rng = random.Random(SEED)
@@ -321,7 +326,7 @@ for (spirit, tier), rows in by_tier.items():
         pct(losses_before, 0.5), pct(losses_before, 0.9),
         max(losses_before) if losses_before else None,
         pct(nets, 0.5), min(nets) if nets else None, max(nets) if nets else None,
-        RUN_AT,
+        RUN_AT, SEED,
     ))
 
 KPI_COLS = [
@@ -332,7 +337,7 @@ KPI_COLS = [
     "avg_losses_before_win", "median_losses_before_win", "p90_losses_before_win",
     "max_losses_before_win",
     "median_session_net", "worst_session_net", "best_session_net",
-    "computed_at",
+    "computed_at", "seed",
 ]
 
 print(f"\n{'spirit':<8}{'tier':<6}{'win% sim':<10}{'win% tgt':<10}{'payout sim':<12}{'payout tgt':<12}{'avg losses->win':<16}")
