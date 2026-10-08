@@ -39,35 +39,35 @@
       "name": "ds_walk_t1",
       "displayName": "Tier 1 ($50 pull) \u2014 example session, pull by pull",
       "queryLines": [
-        "SELECT pull_number, bottle_label, retail_value, pull_price, net_dollars,\n       is_win, is_placeholder, cumulative_net, losses_before_this_pull\nFROM prod_celr.gold.pull_simulation_pulls\nWHERE spirit = 'bourbon' AND tier = 1\nORDER BY pull_number"
+        "SELECT pull_number, bottle_label, retail_value, pull_price,\n       -net_dollars AS celr_profit, is_win, is_placeholder,\n       -cumulative_net AS celr_running_total, losses_before_this_pull\nFROM prod_celr.gold.pull_simulation_pulls\nWHERE spirit = 'bourbon' AND tier = 1\nORDER BY pull_number"
       ]
     },
     {
       "name": "ds_walk_t2",
       "displayName": "Tier 2 ($100 pull) \u2014 example session, pull by pull",
       "queryLines": [
-        "SELECT pull_number, bottle_label, retail_value, pull_price, net_dollars,\n       is_win, is_placeholder, cumulative_net, losses_before_this_pull\nFROM prod_celr.gold.pull_simulation_pulls\nWHERE spirit = 'bourbon' AND tier = 2\nORDER BY pull_number"
+        "SELECT pull_number, bottle_label, retail_value, pull_price,\n       -net_dollars AS celr_profit, is_win, is_placeholder,\n       -cumulative_net AS celr_running_total, losses_before_this_pull\nFROM prod_celr.gold.pull_simulation_pulls\nWHERE spirit = 'bourbon' AND tier = 2\nORDER BY pull_number"
       ]
     },
     {
       "name": "ds_walk_t3",
       "displayName": "Tier 3 ($500 pull) \u2014 example session, pull by pull",
       "queryLines": [
-        "SELECT pull_number, bottle_label, retail_value, pull_price, net_dollars,\n       is_win, is_placeholder, cumulative_net, losses_before_this_pull\nFROM prod_celr.gold.pull_simulation_pulls\nWHERE spirit = 'bourbon' AND tier = 3\nORDER BY pull_number"
+        "SELECT pull_number, bottle_label, retail_value, pull_price,\n       -net_dollars AS celr_profit, is_win, is_placeholder,\n       -cumulative_net AS celr_running_total, losses_before_this_pull\nFROM prod_celr.gold.pull_simulation_pulls\nWHERE spirit = 'bourbon' AND tier = 3\nORDER BY pull_number"
       ]
     },
     {
       "name": "ds_walk_t4",
       "displayName": "Tier 4 ($1000 pull) \u2014 example session, pull by pull",
       "queryLines": [
-        "SELECT pull_number, bottle_label, retail_value, pull_price, net_dollars,\n       is_win, is_placeholder, cumulative_net, losses_before_this_pull\nFROM prod_celr.gold.pull_simulation_pulls\nWHERE spirit = 'bourbon' AND tier = 4\nORDER BY pull_number"
+        "SELECT pull_number, bottle_label, retail_value, pull_price,\n       -net_dollars AS celr_profit, is_win, is_placeholder,\n       -cumulative_net AS celr_running_total, losses_before_this_pull\nFROM prod_celr.gold.pull_simulation_pulls\nWHERE spirit = 'bourbon' AND tier = 4\nORDER BY pull_number"
       ]
     },
     {
       "name": "ds_walk_t5",
       "displayName": "Tier 5 ($250 pull) \u2014 example session, pull by pull",
       "queryLines": [
-        "SELECT pull_number, bottle_label, retail_value, pull_price, net_dollars,\n       is_win, is_placeholder, cumulative_net, losses_before_this_pull\nFROM prod_celr.gold.pull_simulation_pulls\nWHERE spirit = 'bourbon' AND tier = 5\nORDER BY pull_number"
+        "SELECT pull_number, bottle_label, retail_value, pull_price,\n       -net_dollars AS celr_profit, is_win, is_placeholder,\n       -cumulative_net AS celr_running_total, losses_before_this_pull\nFROM prod_celr.gold.pull_simulation_pulls\nWHERE spirit = 'bourbon' AND tier = 5\nORDER BY pull_number"
       ]
     },
     {
@@ -709,14 +709,14 @@
                     "displayAs": "number",
                     "visible": true,
                     "order": 100013,
-                    "title": "Avg $ net / pull",
+                    "title": "Player avg net / pull ($)",
                     "allowSearch": false,
                     "alignContent": "right",
                     "allowHTML": false,
                     "highlightLinks": false,
                     "useMonospaceFont": false,
                     "preserveWhitespace": false,
-                    "displayName": "Avg $ net / pull",
+                    "displayName": "Player avg net / pull ($)",
                     "numberFormat": "$0,0"
                   },
                   {
@@ -737,14 +737,14 @@
                     "displayAs": "number",
                     "visible": true,
                     "order": 100014,
-                    "title": "Median session net ($)",
+                    "title": "Player median session net ($)",
                     "allowSearch": false,
                     "alignContent": "right",
                     "allowHTML": false,
                     "highlightLinks": false,
                     "useMonospaceFont": false,
                     "preserveWhitespace": false,
-                    "displayName": "Median session net ($)",
+                    "displayName": "Player median session net ($)",
                     "numberFormat": "$0,0"
                   },
                   {
@@ -765,14 +765,14 @@
                     "displayAs": "number",
                     "visible": true,
                     "order": 100015,
-                    "title": "Worst 100-pull session ($)",
+                    "title": "Player worst 100-pull session ($)",
                     "allowSearch": false,
                     "alignContent": "right",
                     "allowHTML": false,
                     "highlightLinks": false,
                     "useMonospaceFont": false,
                     "preserveWhitespace": false,
-                    "displayName": "Worst 100-pull session ($)",
+                    "displayName": "Player worst 100-pull session ($)",
                     "numberFormat": "$0,0"
                   },
                   {
@@ -793,14 +793,14 @@
                     "displayAs": "number",
                     "visible": true,
                     "order": 100016,
-                    "title": "Best 100-pull session ($)",
+                    "title": "Player best 100-pull session ($)",
                     "allowSearch": false,
                     "alignContent": "right",
                     "allowHTML": false,
                     "highlightLinks": false,
                     "useMonospaceFont": false,
                     "preserveWhitespace": false,
-                    "displayName": "Best 100-pull session ($)",
+                    "displayName": "Player best 100-pull session ($)",
                     "numberFormat": "$0,0"
                   },
                   {
@@ -821,14 +821,14 @@
                     "displayAs": "number",
                     "visible": true,
                     "order": 100017,
-                    "title": "Net across all sessions ($)",
+                    "title": "Player net, all sessions ($)",
                     "allowSearch": false,
                     "alignContent": "right",
                     "allowHTML": false,
                     "highlightLinks": false,
                     "useMonospaceFont": false,
                     "preserveWhitespace": false,
-                    "displayName": "Net across all sessions ($)",
+                    "displayName": "Player net, all sessions ($)",
                     "numberFormat": "$0,0"
                   },
                   {
@@ -1011,7 +1011,7 @@
                   "scale": {
                     "type": "quantitative"
                   },
-                  "displayName": "Session net $"
+                  "displayName": "Player session net $"
                 },
                 "y": {
                   "fieldName": "series",
@@ -1022,7 +1022,7 @@
                 }
               },
               "frame": {
-                "title": "Net profit/loss variance across simulated sessions",
+                "title": "Player net profit/loss across simulated sessions",
                 "showTitle": true
               }
             }
@@ -2030,8 +2030,8 @@
                       "expression": "`pull_price`"
                     },
                     {
-                      "name": "net_dollars",
-                      "expression": "`net_dollars`"
+                      "name": "celr_profit",
+                      "expression": "`celr_profit`"
                     },
                     {
                       "name": "is_win",
@@ -2042,8 +2042,8 @@
                       "expression": "`is_placeholder`"
                     },
                     {
-                      "name": "cumulative_net",
-                      "expression": "`cumulative_net`"
+                      "name": "celr_running_total",
+                      "expression": "`celr_running_total`"
                     },
                     {
                       "name": "losses_before_this_pull",
@@ -2171,7 +2171,7 @@
                     "numberFormat": "$0,0"
                   },
                   {
-                    "fieldName": "net_dollars",
+                    "fieldName": "celr_profit",
                     "booleanValues": [
                       "false",
                       "true"
@@ -2188,14 +2188,14 @@
                     "displayAs": "number",
                     "visible": true,
                     "order": 100004,
-                    "title": "Net $",
+                    "title": "CELR profit $",
                     "allowSearch": false,
                     "alignContent": "right",
                     "allowHTML": false,
                     "highlightLinks": false,
                     "useMonospaceFont": false,
                     "preserveWhitespace": false,
-                    "displayName": "Net $",
+                    "displayName": "CELR profit $",
                     "numberFormat": "$0,0"
                   },
                   {
@@ -2216,14 +2216,14 @@
                     "displayAs": "boolean",
                     "visible": true,
                     "order": 100005,
-                    "title": "Won?",
+                    "title": "Player won?",
                     "allowSearch": false,
                     "alignContent": "right",
                     "allowHTML": false,
                     "highlightLinks": false,
                     "useMonospaceFont": false,
                     "preserveWhitespace": false,
-                    "displayName": "Won?"
+                    "displayName": "Player won?"
                   },
                   {
                     "fieldName": "is_placeholder",
@@ -2253,7 +2253,7 @@
                     "displayName": "Gap placeholder?"
                   },
                   {
-                    "fieldName": "cumulative_net",
+                    "fieldName": "celr_running_total",
                     "booleanValues": [
                       "false",
                       "true"
@@ -2270,14 +2270,14 @@
                     "displayAs": "number",
                     "visible": true,
                     "order": 100007,
-                    "title": "Running total $",
+                    "title": "CELR running total $",
                     "allowSearch": false,
                     "alignContent": "right",
                     "allowHTML": false,
                     "highlightLinks": false,
                     "useMonospaceFont": false,
                     "preserveWhitespace": false,
-                    "displayName": "Running total $",
+                    "displayName": "CELR running total $",
                     "numberFormat": "$0,0"
                   },
                   {
@@ -2343,8 +2343,8 @@
                       "expression": "`pull_number`"
                     },
                     {
-                      "name": "cumulative_net",
-                      "expression": "`cumulative_net`"
+                      "name": "celr_running_total",
+                      "expression": "`celr_running_total`"
                     }
                   ],
                   "disaggregated": true
@@ -2363,11 +2363,11 @@
                   "displayName": "Pull #"
                 },
                 "y": {
-                  "fieldName": "cumulative_net",
+                  "fieldName": "celr_running_total",
                   "scale": {
                     "type": "quantitative"
                   },
-                  "displayName": "Running total $",
+                  "displayName": "CELR running total $",
                   "format": {
                     "type": "number-currency",
                     "currencyCode": "USD",
@@ -2379,7 +2379,7 @@
                 }
               },
               "frame": {
-                "title": "Tier 1 \u2014 running total across the session",
+                "title": "Tier 1 \u2014 CELR running profit across the session",
                 "showTitle": true
               }
             }
@@ -2417,8 +2417,8 @@
                       "expression": "`pull_price`"
                     },
                     {
-                      "name": "net_dollars",
-                      "expression": "`net_dollars`"
+                      "name": "celr_profit",
+                      "expression": "`celr_profit`"
                     },
                     {
                       "name": "is_win",
@@ -2429,8 +2429,8 @@
                       "expression": "`is_placeholder`"
                     },
                     {
-                      "name": "cumulative_net",
-                      "expression": "`cumulative_net`"
+                      "name": "celr_running_total",
+                      "expression": "`celr_running_total`"
                     },
                     {
                       "name": "losses_before_this_pull",
@@ -2558,7 +2558,7 @@
                     "numberFormat": "$0,0"
                   },
                   {
-                    "fieldName": "net_dollars",
+                    "fieldName": "celr_profit",
                     "booleanValues": [
                       "false",
                       "true"
@@ -2575,14 +2575,14 @@
                     "displayAs": "number",
                     "visible": true,
                     "order": 100004,
-                    "title": "Net $",
+                    "title": "CELR profit $",
                     "allowSearch": false,
                     "alignContent": "right",
                     "allowHTML": false,
                     "highlightLinks": false,
                     "useMonospaceFont": false,
                     "preserveWhitespace": false,
-                    "displayName": "Net $",
+                    "displayName": "CELR profit $",
                     "numberFormat": "$0,0"
                   },
                   {
@@ -2603,14 +2603,14 @@
                     "displayAs": "boolean",
                     "visible": true,
                     "order": 100005,
-                    "title": "Won?",
+                    "title": "Player won?",
                     "allowSearch": false,
                     "alignContent": "right",
                     "allowHTML": false,
                     "highlightLinks": false,
                     "useMonospaceFont": false,
                     "preserveWhitespace": false,
-                    "displayName": "Won?"
+                    "displayName": "Player won?"
                   },
                   {
                     "fieldName": "is_placeholder",
@@ -2640,7 +2640,7 @@
                     "displayName": "Gap placeholder?"
                   },
                   {
-                    "fieldName": "cumulative_net",
+                    "fieldName": "celr_running_total",
                     "booleanValues": [
                       "false",
                       "true"
@@ -2657,14 +2657,14 @@
                     "displayAs": "number",
                     "visible": true,
                     "order": 100007,
-                    "title": "Running total $",
+                    "title": "CELR running total $",
                     "allowSearch": false,
                     "alignContent": "right",
                     "allowHTML": false,
                     "highlightLinks": false,
                     "useMonospaceFont": false,
                     "preserveWhitespace": false,
-                    "displayName": "Running total $",
+                    "displayName": "CELR running total $",
                     "numberFormat": "$0,0"
                   },
                   {
@@ -2730,8 +2730,8 @@
                       "expression": "`pull_number`"
                     },
                     {
-                      "name": "cumulative_net",
-                      "expression": "`cumulative_net`"
+                      "name": "celr_running_total",
+                      "expression": "`celr_running_total`"
                     }
                   ],
                   "disaggregated": true
@@ -2750,11 +2750,11 @@
                   "displayName": "Pull #"
                 },
                 "y": {
-                  "fieldName": "cumulative_net",
+                  "fieldName": "celr_running_total",
                   "scale": {
                     "type": "quantitative"
                   },
-                  "displayName": "Running total $",
+                  "displayName": "CELR running total $",
                   "format": {
                     "type": "number-currency",
                     "currencyCode": "USD",
@@ -2766,7 +2766,7 @@
                 }
               },
               "frame": {
-                "title": "Tier 2 \u2014 running total across the session",
+                "title": "Tier 2 \u2014 CELR running profit across the session",
                 "showTitle": true
               }
             }
@@ -2804,8 +2804,8 @@
                       "expression": "`pull_price`"
                     },
                     {
-                      "name": "net_dollars",
-                      "expression": "`net_dollars`"
+                      "name": "celr_profit",
+                      "expression": "`celr_profit`"
                     },
                     {
                       "name": "is_win",
@@ -2816,8 +2816,8 @@
                       "expression": "`is_placeholder`"
                     },
                     {
-                      "name": "cumulative_net",
-                      "expression": "`cumulative_net`"
+                      "name": "celr_running_total",
+                      "expression": "`celr_running_total`"
                     },
                     {
                       "name": "losses_before_this_pull",
@@ -2945,7 +2945,7 @@
                     "numberFormat": "$0,0"
                   },
                   {
-                    "fieldName": "net_dollars",
+                    "fieldName": "celr_profit",
                     "booleanValues": [
                       "false",
                       "true"
@@ -2962,14 +2962,14 @@
                     "displayAs": "number",
                     "visible": true,
                     "order": 100004,
-                    "title": "Net $",
+                    "title": "CELR profit $",
                     "allowSearch": false,
                     "alignContent": "right",
                     "allowHTML": false,
                     "highlightLinks": false,
                     "useMonospaceFont": false,
                     "preserveWhitespace": false,
-                    "displayName": "Net $",
+                    "displayName": "CELR profit $",
                     "numberFormat": "$0,0"
                   },
                   {
@@ -2990,14 +2990,14 @@
                     "displayAs": "boolean",
                     "visible": true,
                     "order": 100005,
-                    "title": "Won?",
+                    "title": "Player won?",
                     "allowSearch": false,
                     "alignContent": "right",
                     "allowHTML": false,
                     "highlightLinks": false,
                     "useMonospaceFont": false,
                     "preserveWhitespace": false,
-                    "displayName": "Won?"
+                    "displayName": "Player won?"
                   },
                   {
                     "fieldName": "is_placeholder",
@@ -3027,7 +3027,7 @@
                     "displayName": "Gap placeholder?"
                   },
                   {
-                    "fieldName": "cumulative_net",
+                    "fieldName": "celr_running_total",
                     "booleanValues": [
                       "false",
                       "true"
@@ -3044,14 +3044,14 @@
                     "displayAs": "number",
                     "visible": true,
                     "order": 100007,
-                    "title": "Running total $",
+                    "title": "CELR running total $",
                     "allowSearch": false,
                     "alignContent": "right",
                     "allowHTML": false,
                     "highlightLinks": false,
                     "useMonospaceFont": false,
                     "preserveWhitespace": false,
-                    "displayName": "Running total $",
+                    "displayName": "CELR running total $",
                     "numberFormat": "$0,0"
                   },
                   {
@@ -3117,8 +3117,8 @@
                       "expression": "`pull_number`"
                     },
                     {
-                      "name": "cumulative_net",
-                      "expression": "`cumulative_net`"
+                      "name": "celr_running_total",
+                      "expression": "`celr_running_total`"
                     }
                   ],
                   "disaggregated": true
@@ -3137,11 +3137,11 @@
                   "displayName": "Pull #"
                 },
                 "y": {
-                  "fieldName": "cumulative_net",
+                  "fieldName": "celr_running_total",
                   "scale": {
                     "type": "quantitative"
                   },
-                  "displayName": "Running total $",
+                  "displayName": "CELR running total $",
                   "format": {
                     "type": "number-currency",
                     "currencyCode": "USD",
@@ -3153,7 +3153,7 @@
                 }
               },
               "frame": {
-                "title": "Tier 3 \u2014 running total across the session",
+                "title": "Tier 3 \u2014 CELR running profit across the session",
                 "showTitle": true
               }
             }
@@ -3191,8 +3191,8 @@
                       "expression": "`pull_price`"
                     },
                     {
-                      "name": "net_dollars",
-                      "expression": "`net_dollars`"
+                      "name": "celr_profit",
+                      "expression": "`celr_profit`"
                     },
                     {
                       "name": "is_win",
@@ -3203,8 +3203,8 @@
                       "expression": "`is_placeholder`"
                     },
                     {
-                      "name": "cumulative_net",
-                      "expression": "`cumulative_net`"
+                      "name": "celr_running_total",
+                      "expression": "`celr_running_total`"
                     },
                     {
                       "name": "losses_before_this_pull",
@@ -3332,7 +3332,7 @@
                     "numberFormat": "$0,0"
                   },
                   {
-                    "fieldName": "net_dollars",
+                    "fieldName": "celr_profit",
                     "booleanValues": [
                       "false",
                       "true"
@@ -3349,14 +3349,14 @@
                     "displayAs": "number",
                     "visible": true,
                     "order": 100004,
-                    "title": "Net $",
+                    "title": "CELR profit $",
                     "allowSearch": false,
                     "alignContent": "right",
                     "allowHTML": false,
                     "highlightLinks": false,
                     "useMonospaceFont": false,
                     "preserveWhitespace": false,
-                    "displayName": "Net $",
+                    "displayName": "CELR profit $",
                     "numberFormat": "$0,0"
                   },
                   {
@@ -3377,14 +3377,14 @@
                     "displayAs": "boolean",
                     "visible": true,
                     "order": 100005,
-                    "title": "Won?",
+                    "title": "Player won?",
                     "allowSearch": false,
                     "alignContent": "right",
                     "allowHTML": false,
                     "highlightLinks": false,
                     "useMonospaceFont": false,
                     "preserveWhitespace": false,
-                    "displayName": "Won?"
+                    "displayName": "Player won?"
                   },
                   {
                     "fieldName": "is_placeholder",
@@ -3414,7 +3414,7 @@
                     "displayName": "Gap placeholder?"
                   },
                   {
-                    "fieldName": "cumulative_net",
+                    "fieldName": "celr_running_total",
                     "booleanValues": [
                       "false",
                       "true"
@@ -3431,14 +3431,14 @@
                     "displayAs": "number",
                     "visible": true,
                     "order": 100007,
-                    "title": "Running total $",
+                    "title": "CELR running total $",
                     "allowSearch": false,
                     "alignContent": "right",
                     "allowHTML": false,
                     "highlightLinks": false,
                     "useMonospaceFont": false,
                     "preserveWhitespace": false,
-                    "displayName": "Running total $",
+                    "displayName": "CELR running total $",
                     "numberFormat": "$0,0"
                   },
                   {
@@ -3504,8 +3504,8 @@
                       "expression": "`pull_number`"
                     },
                     {
-                      "name": "cumulative_net",
-                      "expression": "`cumulative_net`"
+                      "name": "celr_running_total",
+                      "expression": "`celr_running_total`"
                     }
                   ],
                   "disaggregated": true
@@ -3524,11 +3524,11 @@
                   "displayName": "Pull #"
                 },
                 "y": {
-                  "fieldName": "cumulative_net",
+                  "fieldName": "celr_running_total",
                   "scale": {
                     "type": "quantitative"
                   },
-                  "displayName": "Running total $",
+                  "displayName": "CELR running total $",
                   "format": {
                     "type": "number-currency",
                     "currencyCode": "USD",
@@ -3540,7 +3540,7 @@
                 }
               },
               "frame": {
-                "title": "Tier 4 \u2014 running total across the session",
+                "title": "Tier 4 \u2014 CELR running profit across the session",
                 "showTitle": true
               }
             }
@@ -3578,8 +3578,8 @@
                       "expression": "`pull_price`"
                     },
                     {
-                      "name": "net_dollars",
-                      "expression": "`net_dollars`"
+                      "name": "celr_profit",
+                      "expression": "`celr_profit`"
                     },
                     {
                       "name": "is_win",
@@ -3590,8 +3590,8 @@
                       "expression": "`is_placeholder`"
                     },
                     {
-                      "name": "cumulative_net",
-                      "expression": "`cumulative_net`"
+                      "name": "celr_running_total",
+                      "expression": "`celr_running_total`"
                     },
                     {
                       "name": "losses_before_this_pull",
@@ -3719,7 +3719,7 @@
                     "numberFormat": "$0,0"
                   },
                   {
-                    "fieldName": "net_dollars",
+                    "fieldName": "celr_profit",
                     "booleanValues": [
                       "false",
                       "true"
@@ -3736,14 +3736,14 @@
                     "displayAs": "number",
                     "visible": true,
                     "order": 100004,
-                    "title": "Net $",
+                    "title": "CELR profit $",
                     "allowSearch": false,
                     "alignContent": "right",
                     "allowHTML": false,
                     "highlightLinks": false,
                     "useMonospaceFont": false,
                     "preserveWhitespace": false,
-                    "displayName": "Net $",
+                    "displayName": "CELR profit $",
                     "numberFormat": "$0,0"
                   },
                   {
@@ -3764,14 +3764,14 @@
                     "displayAs": "boolean",
                     "visible": true,
                     "order": 100005,
-                    "title": "Won?",
+                    "title": "Player won?",
                     "allowSearch": false,
                     "alignContent": "right",
                     "allowHTML": false,
                     "highlightLinks": false,
                     "useMonospaceFont": false,
                     "preserveWhitespace": false,
-                    "displayName": "Won?"
+                    "displayName": "Player won?"
                   },
                   {
                     "fieldName": "is_placeholder",
@@ -3801,7 +3801,7 @@
                     "displayName": "Gap placeholder?"
                   },
                   {
-                    "fieldName": "cumulative_net",
+                    "fieldName": "celr_running_total",
                     "booleanValues": [
                       "false",
                       "true"
@@ -3818,14 +3818,14 @@
                     "displayAs": "number",
                     "visible": true,
                     "order": 100007,
-                    "title": "Running total $",
+                    "title": "CELR running total $",
                     "allowSearch": false,
                     "alignContent": "right",
                     "allowHTML": false,
                     "highlightLinks": false,
                     "useMonospaceFont": false,
                     "preserveWhitespace": false,
-                    "displayName": "Running total $",
+                    "displayName": "CELR running total $",
                     "numberFormat": "$0,0"
                   },
                   {
@@ -3891,8 +3891,8 @@
                       "expression": "`pull_number`"
                     },
                     {
-                      "name": "cumulative_net",
-                      "expression": "`cumulative_net`"
+                      "name": "celr_running_total",
+                      "expression": "`celr_running_total`"
                     }
                   ],
                   "disaggregated": true
@@ -3911,11 +3911,11 @@
                   "displayName": "Pull #"
                 },
                 "y": {
-                  "fieldName": "cumulative_net",
+                  "fieldName": "celr_running_total",
                   "scale": {
                     "type": "quantitative"
                   },
-                  "displayName": "Running total $",
+                  "displayName": "CELR running total $",
                   "format": {
                     "type": "number-currency",
                     "currencyCode": "USD",
@@ -3927,7 +3927,7 @@
                 }
               },
               "frame": {
-                "title": "Tier 5 \u2014 running total across the session",
+                "title": "Tier 5 \u2014 CELR running profit across the session",
                 "showTitle": true
               }
             }

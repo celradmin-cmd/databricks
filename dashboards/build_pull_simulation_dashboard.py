@@ -213,8 +213,11 @@ for tier in SELLABLE_TIERS:
     name = f"ds_walk_t{tier}"
     walkthrough_datasets[tier] = dataset(
         name, f"Tier {tier} (${TIER_PRICE[tier]} pull) — example session, pull by pull", [
-            "SELECT pull_number, bottle_label, retail_value, pull_price, net_dollars,",
-            "       is_win, is_placeholder, cumulative_net, losses_before_this_pull",
+            # CELR's side, like the Profits page: the pulls table stores the
+            # player's net (retail - price), so both dollar columns are negated.
+            "SELECT pull_number, bottle_label, retail_value, pull_price,",
+            "       -net_dollars AS celr_profit, is_win, is_placeholder,",
+            "       -cumulative_net AS celr_running_total, losses_before_this_pull",
             f"FROM {PULLS_TBL}",
             f"WHERE spirit = '{WALKTHROUGH_SPIRIT}' AND tier = {tier}",
             "ORDER BY pull_number",
@@ -248,11 +251,11 @@ overview_layout = [
         ("median_losses_before_win", "Median losses before a win", "float"),
         ("p90_losses_before_win", "P90 losses before a win", "float"),
         ("max_losses_before_win", "Worst losing streak", "integer"),
-        ("avg_net_dollars_per_pull", "Avg $ net / pull", "usd"),
-        ("median_session_net", "Median session net ($)", "usd"),
-        ("worst_session_net", "Worst 100-pull session ($)", "usd"),
-        ("best_session_net", "Best 100-pull session ($)", "usd"),
-        ("net_profit_loss", "Net across all sessions ($)", "usd"),
+        ("avg_net_dollars_per_pull", "Player avg net / pull ($)", "usd"),
+        ("median_session_net", "Player median session net ($)", "usd"),
+        ("worst_session_net", "Player worst 100-pull session ($)", "usd"),
+        ("best_session_net", "Player best 100-pull session ($)", "usd"),
+        ("net_profit_loss", "Player net, all sessions ($)", "usd"),
         ("total_spent", "Total spent ($)", "usd"),
         ("total_retail_won", "Total retail won ($)", "usd"),
     ]), 0, 3, 12, 6),
@@ -269,10 +272,10 @@ overview_layout = [
     ), 0, 9, 6, 6),
 
     laid_out(widget(
-        "b_session_net", "Net profit/loss variance across simulated sessions", "bar", "ds_session_net",
+        "b_session_net", "Player net profit/loss across simulated sessions", "bar", "ds_session_net",
         ["series", "net_profit_loss"],
         {
-            "x": {"fieldName": "net_profit_loss", "scale": {"type": "quantitative"}, "displayName": "Session net $"},
+            "x": {"fieldName": "net_profit_loss", "scale": {"type": "quantitative"}, "displayName": "Player session net $"},
             "y": {"fieldName": "series", "scale": {"type": "categorical"}, "displayName": "Spirit / tier"},
         },
     ), 6, 9, 6, 6),
@@ -312,19 +315,19 @@ for i, tier in enumerate(SELLABLE_TIERS):
             ("bottle_label", "Bottle", "string"),
             ("retail_value", "Retail value", "usd"),
             ("pull_price", "Paid", "usd"),
-            ("net_dollars", "Net $", "usd"),
-            ("is_win", "Won?", "boolean"),
+            ("celr_profit", "CELR profit $", "usd"),
+            ("is_win", "Player won?", "boolean"),
             ("is_placeholder", "Gap placeholder?", "boolean"),
-            ("cumulative_net", "Running total $", "usd"),
+            ("celr_running_total", "CELR running total $", "usd"),
             ("losses_before_this_pull", "Losses right before this win", "integer"),
         ]), 0, y, 6, row_height))
     walkthrough_layout.append(laid_out(widget(
-        f"l_walk_t{tier}", f"Tier {tier} — running total across the session", "line", ds_name,
-        ["pull_number", "cumulative_net"],
+        f"l_walk_t{tier}", f"Tier {tier} — CELR running profit across the session", "line", ds_name,
+        ["pull_number", "celr_running_total"],
         {
             "x": {"fieldName": "pull_number", "scale": {"type": "quantitative"}, "displayName": "Pull #"},
-            "y": {"fieldName": "cumulative_net", "scale": {"type": "quantitative"},
-                  "displayName": "Running total $", "format": USD_FMT},
+            "y": {"fieldName": "celr_running_total", "scale": {"type": "quantitative"},
+                  "displayName": "CELR running total $", "format": USD_FMT},
         },
     ), 6, y, 6, row_height))
 
