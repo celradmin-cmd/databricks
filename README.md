@@ -19,12 +19,20 @@ All Things Celr databricks.
 
 Tuned to two targets, both asserted in `00_celr_odds_config.py`:
 
-- **0.8935x payout** — the house keeps ~10.7% of GMV from the curve (target
+- **~0.84x payout** — the house keeps ~16% of GMV from the curve (target
   10–20%). Instant sellback pays 100% of retail, so this is the edge on an
   instant seller.
-- **24.6% win rate** — a bottle worth at least the pull price roughly every 4
-  pulls, with 75% of those wins in band 2 (1.00–1.25x par), the band
-  immediately above the loss line.
+- **25% win rate** — a bottle worth at least the pull price every 4 pulls,
+  with 86% of those wins in band 2 (1.00–1.25x par), the band immediately above
+  the loss line. Big wins (1.6x+) are 1% of pulls, grails (8x+) 0.05%.
+
+Inside each band, weight is split by value (`cell_weights()`): cheaper bottles
+are drawn more often, so a cell averages `BAND_TARGET_POSITION` of the way up its
+band (20% for win bands, i.e. a win is usually a bottle just over what was paid)
+instead of whatever its stocked bottles happen to average. Equal splits are why
+the Oct 2026 floor simulated at ~1.0x against a 0.89x design. `02`/`03`/`04`
+print each tier's real floor payout next to the design target after every
+build/reweight — that number, not the band shares, is the one to watch.
 
 Band 2 is split at 1.25x specifically to make that pair possible; a single wide
 1.00–1.60x win band costs ~8% more payout at the same win rate.

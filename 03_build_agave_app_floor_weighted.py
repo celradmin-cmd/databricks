@@ -28,10 +28,11 @@
 # MAGIC bottle from every tier it was eligible for, in one statement.
 # MAGIC
 # MAGIC ## How odds stay correct with far fewer rows
-# MAGIC Odds come from the **weight** column (`weight_for_band` in
+# MAGIC Odds come from the **weight** column (`cell_weights` in
 # MAGIC `00_celr_odds_config`), not row counts. For a `(tier, band)` cell with target
-# MAGIC probability `p` and `n` bottles landing in it (via ANY of their 5 slots), each
-# MAGIC bottle gets weight `round(p * WEIGHT_SCALE / n)`. A band with only one real
+# MAGIC probability `p` and `n` bottles landing in it (via ANY of their 5 slots), the
+# MAGIC bottles' weights sum to `p * WEIGHT_SCALE`, split toward the cheaper bottles
+# MAGIC in the cell so it pays out at its band target. A band with only one real
 # MAGIC bottle simply puts the entire band's weight on that one row — no replication
 # MAGIC required. `WEIGHT_SCALE` must stay large (currently 1,000,000) — a small scale
 # MAGIC rounds a cell's per-bottle weight to 0 the moment more than a few dozen bottles
@@ -182,20 +183,31 @@ assert n_overflow == 0, (
 # COMMAND ----------
 
 # MAGIC %md ### 2. Weight per (tier, band) cell
-# MAGIC `n` = how many bottles land in this cell via ANY slot. Weight is split evenly
-# MAGIC across them so the cell's total weight always equals `target_prob * WEIGHT_SCALE`,
-# MAGIC regardless of how few — or how many — real bottles fill it.
+# MAGIC The cell's total weight always equals `target_prob * WEIGHT_SCALE`, however
+# MAGIC many bottles fill it. Inside the cell it is split by value — `cell_weights()`
+# MAGIC in `00_celr_odds_config` draws cheaper bottles more often, so a win band pays
+# MAGIC out near its low end rather than at whatever the stocked bottles average.
+# MAGIC Computed on the driver (a few thousand placements), not in a Python UDF.
 
 # COMMAND ----------
 
-@F.udf(returnType=IntegerType())
-def udf_weight(band_idx, n):
-    return weight_for_band(band_idx, n)
-
 cell_counts = placements.groupBy("tier", "band_idx").agg(F.count(F.lit(1)).alias("n"))
-placements_w = (placements
-    .join(cell_counts, ["tier", "band_idx"])
-    .withColumn("weight", udf_weight("band_idx", "n")))
+
+_valued = (placements
+    .join(cat.select("bottle_serial", F.col("retail_value").cast("double").alias("retail_value")),
+          "bottle_serial")
+    .select("bottle_serial", "slot_idx", "tier", "band_idx", "retail_value")
+    .collect())
+_cells = {}
+for r in _valued:
+    _cells.setdefault((int(r["tier"]), int(r["band_idx"])), []).append(r)
+_weight_rows = []
+for (t, b), rows in _cells.items():
+    for r, w in zip(rows, cell_weights(b, [r["retail_value"] / TIER_PRICE[t] for r in rows])):
+        _weight_rows.append((r["bottle_serial"], int(r["slot_idx"]), w))
+_weights = spark.createDataFrame(_weight_rows, "bottle_serial string, slot_idx int, weight int")
+
+placements_w = placements.join(_weights, ["bottle_serial", "slot_idx"])
 
 # COMMAND ----------
 
@@ -285,8 +297,17 @@ for label in SLOT_NAMES:
         F.col(f"{label}_tier").alias("tier"),
         F.col(f"{label}_band").alias("band_idx"),
         F.col(f"{label}_weight").alias("weight"),
+        F.col("retail_value").cast("double").alias("retail_value"),
     ).where(F.col("tier").isNotNull())
     slot_union = s if slot_union is None else slot_union.unionByName(s)
+
+# The payout a player actually faces per tier (weight x value), next to the design
+# target. Band shares can all read OK while this is far off — that is how a 0.89x
+# design ran at ~1.0x on the Oct 2026 floor.
+payout_by_tier = {}
+for r in slot_union.collect():
+    payout_by_tier.setdefault(int(r["tier"]), []).append(
+        (int(r["weight"] or 0), (r["retail_value"] or 0.0) / TIER_PRICE[int(r["tier"])]))
 
 band_totals = {(r["tier"], r["band_idx"]): (r["w"], r["n"])
                for r in slot_union.groupBy("tier", "band_idx")
@@ -297,8 +318,14 @@ tier_totals = {t: sum(w for (tt, _b), (w, _n) in band_totals.items() if tt == t)
 ok_all = True
 for t in TIERS:
     total_rows_in_tier = sum(n for (tt, _b), (_w, n) in band_totals.items() if tt == t)
+    payout = floor_payout(payout_by_tier.get(t, []))
+    payout_ok = payout is not None and payout <= TARGET_PAYOUT_MULTIPLE + 0.02
+    if not payout_ok:
+        ok_all = False
     print(f"\nTier {t} (${TIER_PRICE[t]}), {total_rows_in_tier} rows across {len(BANDS)} bands, "
-          f"total weight {tier_totals[t]}")
+          f"total weight {tier_totals[t]}, floor payout "
+          f"{f'{payout:.3f}x' if payout is not None else 'n/a'} vs design "
+          f"{TARGET_PAYOUT_MULTIPLE:.3f}x {'OK' if payout_ok else '!!'}")
     for b in BANDS:
         w, n = band_totals.get((t, b), (0, 0))
         pct = (w / tier_totals[t] * 100) if tier_totals[t] else 0
@@ -308,7 +335,9 @@ for t in TIERS:
             ok_all = False
         print(f"  band{b + 1}: target {target:5.1f}%  actual {pct:5.1f}%  "
               f"(weight {w:>4} across {n:>3} row{'s' if n != 1 else ' '}) {flag}")
-print("\nComposition matches targets." if ok_all else "\n!! Composition mismatch — check rounding or missing cells.")
+print("\nComposition and payout match targets." if ok_all else
+      "\n!! Composition or payout mismatch — check rounding or missing cells; a payout over "
+      "design means cells are stocked above their band targets (buy toward band_target_value).")
 
 # COMMAND ----------
 

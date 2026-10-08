@@ -39,8 +39,9 @@
 # MAGIC negotiate with. Set `gross_margin` to whatever the business actually runs at.
 # MAGIC
 # MAGIC Note what this does *not* cover: the pull itself carries a house edge by
-# MAGIC design (`expected_multiple()` in `00_celr_odds_config` is 0.8935x — the floor
-# MAGIC gives back about 89 cents of retail for every dollar pulled). Buying below
+# MAGIC design (`expected_multiple()` in `00_celr_odds_config` is ~0.84x — the floor
+# MAGIC gives back about 84 cents of retail for every dollar pulled, provided cells are
+# MAGIC stocked around `band_target_value`, which is what this alert asks you to buy). Buying below
 # MAGIC retail and the sellback discount add margin on top of that.
 # MAGIC Buy above these ceilings for long and the business does not make money, no
 # MAGIC matter what the odds curve says.
@@ -198,7 +199,7 @@ for spirit in TARGETS:
                 "value_range": band_label(t, b),
                 "band_probability": float(target_prob(b)),
                 "is_win_band": bool(is_win_band(b)),
-                "target_retail_value": float(band_mid_value(t, b)),
+                "target_retail_value": float(band_target_value(t, b)),
                 "max_buy_price": float(max_buy_price(t, b, GROSS_MARGIN)),
                 "bottles_on_floor": on_floor,
                 "target_bottles": target,

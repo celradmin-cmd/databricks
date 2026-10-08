@@ -321,61 +321,66 @@ def find_departures(spirit):
 
 # COMMAND ----------
 
-def weight_expr(tier, band_idx, n):
-    """Weight for one slot, or NULL for a slot the bottle doesn't use.
+def compute_floor_weights(floor_df):
+    """{(id, slot_name): weight} for every placed slot on the floor, from
+    `cell_weights()` in `00_celr_odds_config`: each cell's total is its band's
+    budget, split by bottle value so cheaper bottles in the cell are drawn more.
 
-    Native Spark expression, not a Python UDF: a UDF on this column started a
-    Python worker per task, and on the shared cluster that worker handshake
-    timed out (`TimeoutError: timed out` at `out.count()`). The math is
-    `weight_for_band()` from `00_celr_odds_config`, inlined: the band's budget
-    `target_prob * WEIGHT_SCALE` split over `n`, rounded half-to-even like
-    Python's `round()`.
+    Computed on the driver, not in a Python UDF: a UDF on this column started a
+    Python worker per task, and on the shared cluster that worker handshake timed
+    out (`TimeoutError: timed out` at `out.count()`). A floor is a few thousand
+    placements, so collecting them is cheap.
 
-    A placed slot with no band, no matching count row, or a band outside
-    `ODDS_CURVE` is a real inconsistency — the counts come from this same
-    floor — so it fails the job rather than quietly writing a NULL weight and
-    taking the cell's odds to zero."""
-    budget = None
-    for i, (_lo, _hi, p) in enumerate(ODDS_CURVE):
-        budget = (F.when(band_idx == i, F.lit(p * WEIGHT_SCALE)) if budget is None
-                  else budget.when(band_idx == i, F.lit(p * WEIGHT_SCALE)))
-    return (F.when(tier.isNull(), F.lit(None).cast("int"))
-             .when(band_idx.isNull() | n.isNull() | budget.isNull(),
-                   F.raise_error(F.concat(
-                       F.lit("floor row placed in tier "), tier.cast("string"),
-                       F.lit(" has band="), F.coalesce(band_idx.cast("string"), F.lit("None")),
-                       F.lit(", cell count="), F.coalesce(n.cast("string"), F.lit("None")),
-                       F.lit(" — a placement with no valid band never matches its cell "
-                             "and loses its odds"))))
-             .when(n <= 0, F.lit(0))
-             .otherwise(F.bround(budget / n).cast("int")))
+    A placed slot with no band, or a band outside `ODDS_CURVE`, is a real
+    inconsistency, so it fails the job rather than quietly writing a NULL weight
+    and taking the cell's odds to zero."""
+    parts = []
+    for name in SLOT_NAMES:
+        parts.append(floor_df.select(
+            F.col("id"), F.lit(name).alias("slot"),
+            F.col("retail_value").cast("double").alias("retail_value"),
+            F.col(f"{name}_tier").alias("tier"),
+            F.col(f"{name}_band").alias("band_idx"),
+        ).where(F.col(f"{name}_tier").isNotNull()))
+    slots = parts[0]
+    for part in parts[1:]:
+        slots = slots.unionByName(part)
+
+    cells = {}
+    for r in slots.collect():
+        if r["band_idx"] is None or not 0 <= int(r["band_idx"]) < len(ODDS_CURVE):
+            raise ValueError(
+                f"floor row {r['id']} placed in tier {r['tier']} ({r['slot']}) has "
+                f"band={r['band_idx']} — a placement with no valid band never matches "
+                f"its cell and loses its odds")
+        key = (int(r["tier"]), int(r["band_idx"]))
+        cells.setdefault(key, []).append(r)
+
+    weights = {}
+    for (tier, band), rows in cells.items():
+        multiples = [(r["retail_value"] or 0.0) / TIER_PRICE[tier] for r in rows]
+        for r, w in zip(rows, cell_weights(band, multiples)):
+            weights[(r["id"], r["slot"])] = w
+    return weights
 
 
 def reweight_floor(floor_table):
     """Rewrite every `*_weight` on the floor so each cell's total weight equals
-    `target_prob * WEIGHT_SCALE` again. Returns the verification report."""
+    `target_prob * WEIGHT_SCALE` again, split inside the cell by `cell_weights()`.
+    Returns the verification report."""
     floor = spark.table(floor_table)
-    counts = (floor_placements(floor)
-              .groupBy("tier", "band_idx").agg(F.count(F.lit(1)).alias("n")))
+    weights = compute_floor_weights(floor)
 
     out = floor
     for name in SLOT_NAMES:
-        c = counts.select(
-            F.col("tier").alias(f"_{name}_t"),
-            F.col("band_idx").alias(f"_{name}_b"),
-            F.col("n").alias(f"_{name}_n"),
-        )
-        out = (out.join(
-                    c,
-                    (out[f"{name}_tier"] == c[f"_{name}_t"]) &
-                    (out[f"{name}_band"] == c[f"_{name}_b"]),
-                    "left")
-                  .withColumn(
-                      f"{name}_weight",
-                      weight_expr(F.col(f"{name}_tier"),
-                                  F.col(f"{name}_band"),
-                                  F.col(f"_{name}_n")))
-                  .drop(f"_{name}_t", f"_{name}_b", f"_{name}_n"))
+        w = spark.createDataFrame(
+            [(i, wt) for (i, slot), wt in weights.items() if slot == name],
+            f"id string, _{name}_w int")
+        out = (out.join(w, "id", "left")
+                  .withColumn(f"{name}_weight",
+                              F.when(F.col(f"{name}_tier").isNull(), F.lit(None).cast("int"))
+                               .otherwise(F.col(f"_{name}_w")))
+                  .drop(f"_{name}_w"))
 
     if DRY_RUN:
         print(f"  DRY RUN: would reweight {out.count()} rows in {floor_table}.")
@@ -401,10 +406,19 @@ def verify(floor_df):
             F.col(f"{name}_tier").alias("tier"),
             F.col(f"{name}_band").alias("band_idx"),
             F.col(f"{name}_weight").alias("weight"),
+            F.col("retail_value").cast("double").alias("retail_value"),
         ).where(F.col(f"{name}_tier").isNotNull()))
     slots = parts[0]
     for p in parts[1:]:
         slots = slots.unionByName(p)
+
+    # The payout a player actually faces per tier: weight x value over the whole
+    # tier. Band shares can all read OK while this is far off, if cells are
+    # stocked high in their bands — that is how a 0.89x design ran at ~1.0x.
+    payout_by_tier = {}
+    for r in slots.collect():
+        payout_by_tier.setdefault(int(r["tier"]), []).append(
+            (int(r["weight"] or 0), (r["retail_value"] or 0.0) / TIER_PRICE[int(r["tier"])]))
 
     band_totals = {(int(r["tier"]), int(r["band_idx"])): (int(r["w"] or 0), int(r["n"]))
                    for r in slots.groupBy("tier", "band_idx")
@@ -413,7 +427,13 @@ def verify(floor_df):
     ok = True
     for t in TIERS:
         tier_total = sum(w for (tt, _b), (w, _n) in band_totals.items() if tt == t)
-        print(f"\n  Tier {t} (${TIER_PRICE[t]}) — total weight {tier_total}")
+        payout = floor_payout(payout_by_tier.get(t, []))
+        payout_txt = f"{payout:.3f}x" if payout is not None else "n/a"
+        payout_flag = "OK" if payout is not None and payout <= TARGET_PAYOUT_MULTIPLE + 0.02 else "!!"
+        if payout_flag == "!!":
+            ok = False
+        print(f"\n  Tier {t} (${TIER_PRICE[t]}) — total weight {tier_total}, "
+              f"floor payout {payout_txt} vs design {TARGET_PAYOUT_MULTIPLE:.3f}x {payout_flag}")
         for b in BANDS:
             w, n = band_totals.get((t, b), (0, 0))
             pct = (w / tier_total * 100) if tier_total else 0.0
@@ -425,8 +445,10 @@ def verify(floor_df):
             depth = "" if n >= want else f"  SHORT {want - n}"
             print(f"    band{b}: target {tgt:5.2f}%  actual {pct:5.2f}%  "
                   f"({n:>3} bottles / want {want:>3}){depth} {flag}")
-    print("\n  Curve matches ODDS_CURVE." if ok else
-          "\n  !! Curve does NOT match ODDS_CURVE — investigate before the next sync.")
+    print("\n  Curve and payout match ODDS_CURVE." if ok else
+          "\n  !! Curve or payout does NOT match ODDS_CURVE — a payout over design means "
+          "cells are stocked above their band targets (buy toward band_target_value); "
+          "investigate before the next sync.")
     return band_totals
 
 # COMMAND ----------
@@ -562,7 +584,7 @@ for spirit in TARGETS:
             if n < want:
                 all_gaps.append((
                     spirit, t, TIER_PRICE[t], b, band_label(t, b),
-                    float(band_mid_value(t, b)), n, want, want - n,
+                    float(band_target_value(t, b)), n, want, want - n,
                     float(target_prob(b)), now,
                 ))
 

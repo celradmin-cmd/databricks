@@ -13,7 +13,7 @@
 # MAGIC
 # MAGIC 1. **How much would they win or lose?** — real dollars, not just percentages.
 # MAGIC 2. **How often do they win more than they paid?** — the simulated win rate,
-# MAGIC    checked against the 24.6% target `00` asserts.
+# MAGIC    checked against the 25% target `00` asserts.
 # MAGIC 3. **How many pulls land between wins?** — e.g. "3 losses then a win" — the
 # MAGIC    streak distribution, which a probability alone doesn't make tangible.
 # MAGIC
@@ -157,8 +157,10 @@ def theoretical_pool(tier):
             "band_idx": b,
             "weight": prob,            # probabilities sum to 1.0 — a valid weight set as-is
             "is_placeholder": False,
+            # Uniform over [lo, lo + 2*pos*(hi-lo)] so the band averages at
+            # band_target_multiple(), where cell_weights() puts a stocked cell.
             "_lo_dollars": lo * price,
-            "_hi_dollars": hi * price,
+            "_hi_dollars": (lo + 2 * BAND_TARGET_POSITION[b] * (hi - lo)) * price,
         })
     return pool
 
