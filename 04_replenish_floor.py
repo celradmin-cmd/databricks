@@ -415,10 +415,12 @@ def verify(floor_df):
     # The payout a player actually faces per tier: weight x value over the whole
     # tier. Band shares can all read OK while this is far off, if cells are
     # stocked high in their bands — that is how a 0.89x design ran at ~1.0x.
-    payout_by_tier = {}
+    payout_by_tier, payout_by_cell = {}, {}
     for r in slots.collect():
-        payout_by_tier.setdefault(int(r["tier"]), []).append(
-            (int(r["weight"] or 0), (r["retail_value"] or 0.0) / TIER_PRICE[int(r["tier"])]))
+        t, b = int(r["tier"]), int(r["band_idx"])
+        wm = (int(r["weight"] or 0), (r["retail_value"] or 0.0) / TIER_PRICE[t])
+        payout_by_tier.setdefault(t, []).append(wm)
+        payout_by_cell.setdefault((t, b), []).append(wm)
 
     band_totals = {(int(r["tier"]), int(r["band_idx"])): (int(r["w"] or 0), int(r["n"]))
                    for r in slots.groupBy("tier", "band_idx")
@@ -443,7 +445,15 @@ def verify(floor_df):
                 ok = False
             want = target_cell_count(b, FLOOR_DEPTH)
             depth = "" if n >= want else f"  SHORT {want - n}"
-            print(f"    band{b}: target {tgt:5.2f}%  actual {pct:5.2f}%  "
+            # The cell's weighted-average multiple vs. where cell_weights() aims it.
+            # "HIGH" = even the cheapest bottles here sit above the band target, so
+            # weighting can't bring it down — this cell is what's lifting the payout.
+            # Fix by stocking cheaper in-band bottles (band_target_value).
+            avg = floor_payout(payout_by_cell.get((t, b), []))
+            tgt_m = band_target_multiple(b)
+            avg_txt = (f"avg {avg:5.2f}x / aim {tgt_m:5.2f}x"
+                       + ("  HIGH" if avg > tgt_m + 0.02 else "      ")) if avg is not None else " " * 30
+            print(f"    band{b}: target {tgt:5.2f}%  actual {pct:5.2f}%  {avg_txt}  "
                   f"({n:>3} bottles / want {want:>3}){depth} {flag}")
     print("\n  Curve and payout match ODDS_CURVE." if ok else
           "\n  !! Curve or payout does NOT match ODDS_CURVE — a payout over design means "
