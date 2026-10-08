@@ -31,7 +31,7 @@
 # MAGIC | Pass | What it does |
 # MAGIC |---|---|
 # MAGIC | A · Swap | For each departed bottle, place a never-used reserve bottle of equivalent value |
-# MAGIC | B · Reweight | Recompute `weight` for **every** cell on the floor from its current count |
+# MAGIC | B · Reweight | Re-file every bottle's (tier, band) slots from its current `retail_value`, then recompute `weight` for **every** cell |
 # MAGIC | C · Report | List cells still below target, for `05_inventory_reorder_alert.py` |
 # MAGIC
 # MAGIC ## How a replacement is chosen
@@ -364,11 +364,55 @@ def compute_floor_weights(floor_df):
     return weights
 
 
+def reband_floor(floor_df):
+    """Re-derive every real bottle's slot columns from its CURRENT retail_value.
+
+    Band membership is decided entirely by retail_value / tier_price, but the slots
+    are only computed when a bottle is placed. When a retail value changes later
+    (catalog re-pricing flows through the sync), the bottle kept its old slots — a
+    $140 bottle still filed in a $100–$125 band, drawn at that band's odds. The Oct
+    2026 floor had cells averaging above their own band's ceiling (a 1.00–1.25x
+    cell at 1.40x) for exactly this reason, and those strays held the payout up no
+    matter how the weights were split. Re-filing every run makes it self-healing.
+
+    Placeholder rows are left alone: their value is a stand-in for one specific
+    gap cell, and re-filing it would spread the placeholder into other tiers.
+    Returns (rebanded_df, n_rows_changed, n_rows_unplaceable)."""
+    slot_cols = [f"{n}_{k}" for n in SLOT_NAMES for k in ("tier", "band", "weight")]
+    rows = floor_df.select("id", "rarity", F.col("retail_value").cast("double").alias("retail_value"),
+                           *[f"{n}_{k}" for n in SLOT_NAMES for k in ("tier", "band")]).collect()
+    new_slots, changed, unplaceable = [], 0, 0
+    for r in rows:
+        if (r["rarity"] or "") == "placeholder" or r["retail_value"] is None:
+            new_slots.append((r["id"], *[r[c] if not c.endswith("_weight") else None
+                                        for c in slot_cols], False))
+            continue
+        cols = placement_columns(r["retail_value"])
+        moved = any((cols[f"{n}_tier"], cols[f"{n}_band"]) != (r[f"{n}_tier"], r[f"{n}_band"])
+                    for n in SLOT_NAMES)
+        changed += moved
+        unplaceable += cols["primary_tier"] is None
+        new_slots.append((r["id"], *[cols[c] for c in slot_cols], moved))
+    schema = "id string, " + ", ".join(
+        f"_{c} int" for c in slot_cols) + ", _moved boolean"
+    fresh = spark.createDataFrame(new_slots, schema)
+    out = floor_df.join(fresh, "id", "left")
+    for c in slot_cols:
+        out = out.withColumn(c, F.col(f"_{c}")).drop(f"_{c}")
+    return out.drop("_moved"), changed, unplaceable
+
+
 def reweight_floor(floor_table):
-    """Rewrite every `*_weight` on the floor so each cell's total weight equals
+    """Re-file every bottle from its current retail value (`reband_floor`), then
+    rewrite every `*_weight` so each cell's total weight equals
     `target_prob * WEIGHT_SCALE` again, split inside the cell by `cell_weights()`.
     Returns the verification report."""
-    floor = spark.table(floor_table)
+    floor, n_moved, n_unplaceable = reband_floor(spark.table(floor_table))
+    print(f"  Re-filed {n_moved} bottles whose retail value no longer matched their "
+          f"tier/band slots.")
+    if n_unplaceable:
+        print(f"  !! {n_unplaceable} bottles' retail value now fits no sellable tier — they stay "
+              f"on the table but can't be drawn. Pull them from the floor.")
     weights = compute_floor_weights(floor)
 
     out = floor
