@@ -374,7 +374,12 @@ if leftover:
 
 # Phase 2: demand satisfied (or LLM/iteration budget hit) before the bottle budget did —
 # spend what's left on odds-curve-weighted variety instead of stopping short.
-while len(rows) < TOTAL_BOTTLES and iters < MAX_ITERS:
+# Never in restock mode: there the buy list IS the demand, and total_bottles is
+# only a cap. Padding a restock up to the cap appended a full extra inventory.
+if RESTOCK_FROM_REORDER:
+    print(f"restock mode: generated only the buy list ({len(rows)} bottles); "
+          f"total_bottles={TOTAL_BOTTLES} is a cap, not a target — no phase 2 padding")
+while not RESTOCK_FROM_REORDER and len(rows) < TOTAL_BOTTLES and iters < MAX_ITERS:
     iters += 1
     b = random.choices(range(len(BANDS)), weights=PROBS, k=1)[0]
     t = random.choice(list(TIER_PRICE))
@@ -390,7 +395,7 @@ if len(rows) > phase1_count:
     print(f"phase 2: added {len(rows) - phase1_count} bonus bottles to reach the {TOTAL_BOTTLES} budget")
 
 print(f"generated {len(rows)} bottles total over {iters} iterations (budget {TOTAL_BOTTLES})")
-if len(rows) < TOTAL_BOTTLES:
+if len(rows) < TOTAL_BOTTLES and not RESTOCK_FROM_REORDER:
     print(f"[warn] stopped {TOTAL_BOTTLES - len(rows)} short of budget after {MAX_ITERS} iterations "
           "— check LLM call failures above.")
 
