@@ -80,12 +80,6 @@ print(f"env={ENV} total_bottles={TOTAL_BOTTLES} table={BRONZE_TABLE} naming={NAM
 BANDS = [(lo, hi) for (lo, hi, _p) in ODDS_CURVE]
 PROBS = [p for (_lo, _hi, p) in ODDS_CURVE]
 
-def band_index(mult):
-    for i, (lo, hi) in enumerate(BANDS):
-        if lo <= mult < hi:
-            return i
-    return None
-
 def classify(retail_value):
     """Return (eligible_tiers, primary_tier, primary_band) for a retail value.
     eligible_tiers = list of (tier, multiple, band_idx).
