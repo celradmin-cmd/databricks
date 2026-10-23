@@ -15,14 +15,16 @@
 # MAGIC ## Two different kinds of "low"
 # MAGIC
 # MAGIC **Floor gaps** — cells on the live app that are below their target depth right
-# MAGIC now. Read from `gold.floor_gaps`, written by `05`. Urgent: a cell at zero takes
+# MAGIC now, counted straight from `app.*_weighted`. Urgent: a cell at zero takes
 # MAGIC its band's probability to zero and reshapes the curve.
 # MAGIC
-# MAGIC **Reserve coverage** — for each cell, how many never-placed bottles exist that
-# MAGIC could fill it. This is the forward-looking one. A cell can be fully stocked on
-# MAGIC the floor and still be an emergency if there is nothing behind it: the next few
-# MAGIC shipments empty it and `05` has nothing to swap in. Coverage is measured in
-# MAGIC **refills**: reserve bottles for that cell divided by its target depth.
+# MAGIC **Bench** — what stands behind each cell's target: spare bottles already on the
+# MAGIC floor beyond the target, plus never-placed reserve bottles that could fill it.
+# MAGIC Spare floor bottles count because a buyback never removes a bottle — only a
+# MAGIC ship/store does — so a cell holding 4x its target is its own bench. A cell at
+# MAGIC exactly its target with nothing behind it is the emergency: the next few
+# MAGIC shipments empty it and `04` has nothing to swap in. Measured in **refills**:
+# MAGIC bench bottles divided by the target depth.
 # MAGIC
 # MAGIC ## What you can pay
 # MAGIC There is no cost or purchase-price column anywhere in bronze, gold or the app,
@@ -83,13 +85,17 @@ FAIL_ON_ALERT = dbutils.widgets.get("fail_on_alert") == "true"
 if not 0.0 <= GROSS_MARGIN < 1.0:
     raise ValueError(f"gross_margin must be between 0 and 1, got {GROSS_MARGIN}")
 
-GAP_TBL  = f"{CATALOG}.{GOLD}.floor_gaps"
 REC_TBL  = f"{CATALOG}.{GOLD}.reorder_recommendations"
 
 SPIRITS = {
     "bourbon": f"{CATALOG}.{GOLD}.bourbon_catalog",
     "agave":   f"{CATALOG}.{GOLD}.agave_catalog",
 }
+FLOORS = {
+    "bourbon": f"{CATALOG}.{APP}.bourbons_weighted",
+    "agave":   f"{CATALOG}.{APP}.agave_weighted",
+}
+SLOT_NAMES = ["primary", "secondary", "tertiary", "quaternary", "quinary"]
 TARGETS = list(SPIRITS) if SPIRIT_ARG == "both" else [SPIRIT_ARG]
 
 TIERS = sorted(SELLABLE_TIERS)
@@ -145,18 +151,6 @@ def reserve_coverage(gold_table):
     return n_total, {(int(r["tier"]), int(r["band_idx"])): int(r["count"]) for r in rows}
 
 
-def floor_gaps(spirit):
-    """{(tier, band): (on_floor, target, shortfall)} from what 05 last published."""
-    try:
-        rows = (spark.table(GAP_TBL).where(F.col("spirit") == spirit).collect())
-    except Exception as e:
-        print(f"  [info] {GAP_TBL} not readable ({e}) — run 05_replenish_floor.py first. "
-              f"Reporting reserve coverage only.")
-        return {}
-    return {(int(r["tier"]), int(r["band_idx"])):
-            (int(r["bottles_on_floor"]), int(r["target_bottles"]), int(r["shortfall"]))
-            for r in rows}
-
 # COMMAND ----------
 
 # MAGIC %md ## 2. Build the recommendation table
@@ -171,22 +165,27 @@ pool_totals = {}
 
 for spirit in TARGETS:
     n_reserve, coverage = reserve_coverage(SPIRITS[spirit])
-    gaps = floor_gaps(spirit)
+    on_floor_by_cell = floor_census(spirit)
     pool_totals[spirit] = n_reserve
 
     for t in TIERS:
         for b in BANDS:
             target = target_cell_count(b, PULLS_PER_DAY)
             in_reserve = coverage.get((t, b), 0)
-            on_floor, _tgt, shortfall = gaps.get((t, b), (None, target, 0))
-            refills = in_reserve / target if target else 0.0
+            on_floor = on_floor_by_cell.get((t, b), 0)
+            shortfall = max(0, target - on_floor)
+
+            # Bench = everything beyond the floor target, wherever it sits: spare
+            # bottles already on the floor absorb departures just as well as reserve
+            # ones do (a buyback never removes a bottle, only a ship/store does).
+            # Measured in refills — one refill is RESTOCK_DAYS of departures.
+            bench = max(0, on_floor - target) + in_reserve
+            refills = bench / target if target else 0.0
 
             # Buy enough to close the floor gap AND restore a MIN_REFILLS-deep
-            # bench behind it, minus what the reserve already covers. The target is
-            # already RESTOCK_DAYS of departures, so one refill of bench is one more
-            # restock period of cover.
-            want_in_reserve = int(round(MIN_REFILLS * target))
-            to_buy = max(0, shortfall + want_in_reserve - in_reserve)
+            # bench, minus what the floor surplus and reserve already cover.
+            want_bench = int(round(MIN_REFILLS * target))
+            to_buy = max(0, shortfall + want_bench - bench)
 
             low_floor = shortfall > 0
             low_reserve = refills < MIN_REFILLS
@@ -297,7 +296,7 @@ else:
         lines.append(f"    on floor:  {floor_txt} / {r['target_bottles']} target"
                      f"{'   SHORT ' + str(r['floor_shortfall']) if r['floor_shortfall'] else ''}")
         lines.append(f"    in reserve:{r['bottles_in_reserve']:>4}  "
-                     f"({r['refills_of_cover']:.1f} refills of cover)")
+                     f"({r['refills_of_cover']:.1f} refills of cover, counting spare floor bottles)")
         if r["covered_by_other_cells"]:
             lines.append("    BUY 0 — the bottles bought for another cell above also land here")
             continue

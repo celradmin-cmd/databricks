@@ -7,7 +7,9 @@ All Things Celr databricks.
 | Notebook | What it does |
 |---|---|
 | `00_celr_odds_config.py` | The odds curve. `%run` by everything else. Self-tests on every run. |
-| `mock_data_generator/generate_*_bottles.py` | Creates bottle inventory in bronze. |
+| `ingestion/load_kindred_bottles_to_bronze.py` | Loads the real Kindred bottle CSV (from a UC volume) into `bronze.kindred_bottles_raw` and merges it into `bronze.bourbon_inventory` / `agave_inventory`. Replaces the mock generators. |
+| `ingestion/scrape_bottle_images.py` | Finds each Kindred bottle's photo on its brand site, saves it to the `bronze.bottle_images` volume, and records it in `bronze.bottle_image_manifest`. Fix misses via `bronze.bottle_image_overrides`. |
+| `mock_data_generator/generate_*_bottles.py` | *(superseded by the Kindred loader)* Creates synthetic bottle inventory in bronze. |
 | `01_classify_and_enrich.py` | bronze → gold: assigns tiers/bands, LLM rarity + description. |
 | `02_build_bourbon_app_floor_weighted.py` / `03_..._agave_...` | gold → `app.*_weighted`: builds a floor from scratch. |
 | `04_sync_collection_from_unicorn.py` | Pulls the real collection; **Part 2 maintains the never-re-use ledger.** |
