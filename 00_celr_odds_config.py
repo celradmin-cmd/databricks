@@ -211,12 +211,12 @@ def band_target_value(tier, band_idx):
     return band_target_multiple(band_idx) * TIER_PRICE[tier]
 
 
-def cell_weights(band_idx, multiples):
+def cell_weights(band_idx, multiples, prob=None):
     """Integer weights for the bottles in ONE (tier, band) cell, given each
     bottle's multiple of par (retail_value / tier price), in the same order.
 
-    The weights sum to the band's budget (target_prob * WEIGHT_SCALE) — so the
-    band's probability is exactly what ODDS_CURVE says, the same guarantee
+    The weights sum to the band's budget (prob * WEIGHT_SCALE) — so the band's
+    probability is exactly what the curve says, the same guarantee
     weight_for_band() gives. What changes is the split inside the cell:
     exponential tilting, w_i ~ exp(-theta * position_i), with theta found by
     bisection so the cell's weighted-average multiple comes down to
@@ -226,13 +226,17 @@ def cell_weights(band_idx, multiples):
     (theta = 0) — it never tilts toward expensive bottles. If every bottle sits
     above the target, theta tops out and the cheapest bottles carry most of the
     weight. Every bottle keeps a weight of at least 1, so nothing on the floor is
-    undrawable."""
+    undrawable.
+
+    `prob` is the band's probability for the cell's tier — pass
+    `target_prob(band_idx, tier, spirit)` so an approved margin-guard curve is
+    honoured. Omitted, it falls back to the base ODDS_CURVE."""
     import math
     n = len(multiples)
     if n == 0:
         return []
     lo, hi, p = ODDS_CURVE[band_idx]
-    budget = p * WEIGHT_SCALE
+    budget = (p if prob is None else prob) * WEIGHT_SCALE
     target = band_target_multiple(band_idx)
     span = (hi - lo) or 1.0
     pos = [min(max((m - lo) / span, 0.0), 1.0) for m in multiples]
@@ -270,7 +274,7 @@ def floor_payout(placements):
     return sum(w * m for w, m in placements) / tot if tot else None
 
 
-def weight_for_band(band_idx, n_bottles_in_band):
+def weight_for_band(band_idx, n_bottles_in_band, tier=None, spirit=None):
     """Weight for ONE bottle so the band's total weight hits its target probability,
     split evenly across however many bottles currently sit in that band.
 
@@ -283,12 +287,19 @@ def weight_for_band(band_idx, n_bottles_in_band):
     a floor row MUST recompute the affected cells (see `04_replenish_floor.py`)."""
     if n_bottles_in_band <= 0:
         return 0
-    target_prob = ODDS_CURVE[band_idx][2]
-    return int(round(target_prob * WEIGHT_SCALE / n_bottles_in_band))
+    return int(round(target_prob(band_idx, tier, spirit) * WEIGHT_SCALE / n_bottles_in_band))
 
 
-def target_prob(band_idx):
-    return ODDS_CURVE[band_idx][2]
+def tier_probs(tier=None, spirit=None):
+    """The band probabilities in force for one (spirit, tier): the margin guard's
+    approved curve if one is active (see "Approved curve overrides" below), else
+    the base ODDS_CURVE. Without tier/spirit it is always the base curve."""
+    override = APPROVED_TIER_PROBS.get((spirit, tier)) if tier is not None and spirit else None
+    return list(override) if override else [p for (_lo, _hi, p) in ODDS_CURVE]
+
+
+def target_prob(band_idx, tier=None, spirit=None):
+    return tier_probs(tier, spirit)[band_idx]
 
 # COMMAND ----------
 
@@ -362,9 +373,9 @@ def is_win_band(band_idx):
     return band_idx is not None and band_idx >= WIN_BAND_MIN
 
 
-def win_rate():
+def win_rate(tier=None, spirit=None):
     """Probability that any single pull returns a bottle worth >= the pull price."""
-    return sum(p for (_lo, _hi, p) in ODDS_CURVE[WIN_BAND_MIN:])
+    return sum(tier_probs(tier, spirit)[WIN_BAND_MIN:])
 
 
 def expected_multiple():
@@ -377,6 +388,77 @@ def expected_multiple():
     nothing. It is a design number: floor_payout() is what the stocked floor
     actually pays, and only matches this when every cell can reach its target."""
     return sum(p * band_target_multiple(i) for i, (_lo, _hi, p) in enumerate(ODDS_CURVE))
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### Approved curve overrides (margin guard)
+# MAGIC `07_margin_guard.py` watches the house margin hourly and, when a tier's floor
+# MAGIC drifts outside the 15–20% band, proposes shifting a little probability between
+# MAGIC the shallow-loss band and the 1.00–1.25x win band **for that spirit and tier**.
+# MAGIC Once an admin approves it on `/admin/odds`, `08_apply_odds_proposal.py` writes
+# MAGIC it to `app.odds_curve_versions` as `status = 'active'`.
+# MAGIC
+# MAGIC Every notebook that `%run`s this one picks those rows up here, so `02`/`03`/`04`
+# MAGIC weight the floor with the approved curve instead of quietly reverting it on
+# MAGIC their next run. Band **edges** never change, only probabilities, so a bottle's
+# MAGIC cells are the same either way. No table, or no active rows: the base curve.
+# MAGIC
+# MAGIC The guardrails are checked again here, not just in the guard, so a hand-edited
+# MAGIC row can't put a broken curve on the floor.
+
+# COMMAND ----------
+
+ODDS_CURVE_TABLE = "prod_celr.app.odds_curve_versions"
+
+# Margin guard limits — shared by 07 (proposing) and here (loading).
+HOUSE_MARGIN_MIN = 0.15          # below this the house is giving too much back
+HOUSE_MARGIN_MAX = 0.20          # above this players are getting a worse deal than designed
+HOUSE_MARGIN_TARGET = 0.175      # where a proposal aims: the middle of the band
+MIN_WIN_RATE = 0.18              # never propose a tier that wins less often than this
+MAX_WIN_RATE = 0.32
+MAX_DRIFT_PER_BAND = 0.08        # an approved curve stays within 8 points of base, per band
+
+
+def _validate_tier_probs(spirit, tier, probs):
+    base = [p for (_lo, _hi, p) in ODDS_CURVE]
+    where = f"{ODDS_CURVE_TABLE} {spirit} tier {tier}"
+    assert len(probs) == len(base), f"{where}: {len(probs)} bands, curve has {len(base)}"
+    assert all(p > 0 for p in probs), f"{where}: every band needs a positive probability"
+    assert abs(sum(probs) - 1.0) < 1e-6, f"{where}: probabilities sum to {sum(probs)}"
+    wr = sum(probs[WIN_BAND_MIN:])
+    assert MIN_WIN_RATE - 1e-9 <= wr <= MAX_WIN_RATE + 1e-9, f"{where}: win rate {wr:.3f} outside guardrails"
+    drift = max(abs(a - b) for a, b in zip(probs, base))
+    assert drift <= MAX_DRIFT_PER_BAND + 1e-9, f"{where}: a band moved {drift:.3f} from base"
+
+
+def _load_approved_tier_probs():
+    try:
+        rows = spark.sql(
+            f"SELECT spirit, tier, band_probs FROM {ODDS_CURVE_TABLE} WHERE status = 'active'"
+        ).collect()
+    except Exception as e:
+        if "TABLE_OR_VIEW_NOT_FOUND" in str(e):
+            return {}   # margin guard never approved anything yet
+        raise
+    out = {}
+    for r in rows:
+        key = (r["spirit"], int(r["tier"]))
+        assert key not in out, f"{ODDS_CURVE_TABLE}: two active curves for {key}"
+        probs = [float(p) for p in r["band_probs"]]
+        _validate_tier_probs(*key, probs)
+        out[key] = probs
+    return out
+
+
+APPROVED_TIER_PROBS = _load_approved_tier_probs()
+if APPROVED_TIER_PROBS:
+    print("Approved curve overrides in force:")
+    for (_s, _t), _p in sorted(APPROVED_TIER_PROBS.items()):
+        print(f"  {_s:<8} tier {_t}: " + " / ".join(f"{x * 100:.2f}" for x in _p)
+              + f"   win rate {sum(_p[WIN_BAND_MIN:]) * 100:.1f}%")
+else:
+    print("No approved curve overrides — every tier uses the base ODDS_CURVE.")
 
 # COMMAND ----------
 

@@ -321,7 +321,7 @@ def find_departures(spirit):
 
 # COMMAND ----------
 
-def compute_floor_weights(floor_df):
+def compute_floor_weights(floor_df, spirit):
     """{(id, slot_name): weight} for every placed slot on the floor, from
     `cell_weights()` in `00_celr_odds_config`: each cell's total is its band's
     budget, split by bottle value so cheaper bottles in the cell are drawn more.
@@ -359,7 +359,7 @@ def compute_floor_weights(floor_df):
     weights = {}
     for (tier, band), rows in cells.items():
         multiples = [(r["retail_value"] or 0.0) / TIER_PRICE[tier] for r in rows]
-        for r, w in zip(rows, cell_weights(band, multiples)):
+        for r, w in zip(rows, cell_weights(band, multiples, prob=target_prob(band, tier, spirit))):
             weights[(r["id"], r["slot"])] = w
     return weights
 
@@ -402,7 +402,7 @@ def reband_floor(floor_df):
     return out.drop("_moved"), changed, unplaceable
 
 
-def reweight_floor(floor_table):
+def reweight_floor(floor_table, spirit):
     """Re-file every bottle from its current retail value (`reband_floor`), then
     rewrite every `*_weight` so each cell's total weight equals
     `target_prob * WEIGHT_SCALE` again, split inside the cell by `cell_weights()`.
@@ -413,7 +413,7 @@ def reweight_floor(floor_table):
     if n_unplaceable:
         print(f"  !! {n_unplaceable} bottles' retail value now fits no sellable tier — they stay "
               f"on the table but can't be drawn. Pull them from the floor.")
-    weights = compute_floor_weights(floor)
+    weights = compute_floor_weights(floor, spirit)
 
     out = floor
     for name in SLOT_NAMES:
@@ -428,7 +428,7 @@ def reweight_floor(floor_table):
 
     if DRY_RUN:
         print(f"  DRY RUN: would reweight {out.count()} rows in {floor_table}.")
-        return verify(out)
+        return verify(out, spirit)
 
     # Materialize before overwriting the table we are reading from.
     out.cache()
@@ -436,10 +436,10 @@ def reweight_floor(floor_table):
     out.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable(floor_table)
     out.unpersist()
     print(f"  Reweighted {spark.table(floor_table).count()} rows in {floor_table}.")
-    return verify(spark.table(floor_table))
+    return verify(spark.table(floor_table), spirit)
 
 
-def verify(floor_df):
+def verify(floor_df, spirit):
     """Actual vs. target probability per (tier, band), from the weights on the floor.
 
     Carries `weight` as well as the cell, which `floor_placements` does not, so it
@@ -483,7 +483,7 @@ def verify(floor_df):
         for b in BANDS:
             w, n = band_totals.get((t, b), (0, 0))
             pct = (w / tier_total * 100) if tier_total else 0.0
-            tgt = target_prob(b) * 100
+            tgt = target_prob(b, t, spirit) * 100
             flag = "OK" if abs(pct - tgt) < 0.05 else "!!"
             if flag == "!!":
                 ok = False
@@ -626,8 +626,8 @@ for spirit in TARGETS:
         print(f"Logged {len(log_rows)} replacement decisions to {LOG_TBL}.")
 
     # ---- Pass B ---------------------------------------------------------------
-    print(f"\nReweighting {cfg['floor']} against ODDS_CURVE:")
-    band_totals = reweight_floor(cfg["floor"])
+    print(f"\nReweighting {cfg['floor']} against the curve in force (base or approved):")
+    band_totals = reweight_floor(cfg["floor"], spirit)
 
     # ---- Pass C ---------------------------------------------------------------
     # What the floor is still short of, cell by cell. This is the buy list.
@@ -639,7 +639,7 @@ for spirit in TARGETS:
                 all_gaps.append((
                     spirit, t, TIER_PRICE[t], b, band_label(t, b),
                     float(band_target_value(t, b)), n, want, want - n,
-                    float(target_prob(b)), now,
+                    float(target_prob(b, t, spirit)), now,
                 ))
 
 # COMMAND ----------

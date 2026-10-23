@@ -16,6 +16,9 @@ All Things Celr databricks.
 | `05_replenish_floor.py` | Refills the floor after shipments and reweights it. **Schedule this.** |
 | `06_inventory_reorder_alert.py` | Emails what to buy and what to pay. **Schedule this.** |
 | `07_pull_simulation.py` | Simulates pulls tier by tier; feeds the dashboard below. Run ad hoc. |
+| `07_margin_guard.py` | Hourly: house margin (expected from the floor, realized from `app.rips`); proposes odds fixes for approval on `/admin/odds`. **Schedule this.** |
+| `08_apply_odds_proposal.py` | Applies approved proposals: activates the curve, re-weights via `04`, syncs the app. **Schedule this** (every 15 min). |
+| `margin_guard_common.py` | Shared tables + floor-payout math for `07`/`08`. `%run` only. |
 
 ## The odds curve
 
@@ -61,6 +64,38 @@ being ripped reads as `available` again.
 Bronze carries the flags too, because `01_classify_and_enrich.py` rebuilds gold
 with `mode("overwrite")` — flags that lived only in gold would be destroyed on
 every enrichment run and the whole spent pool would look fresh.
+
+## Margin guard
+
+Keeps the house margin inside **15–20%** of pull revenue, with a human approving
+every odds change.
+
+- **Expected margin**: what the live floor pays on average, from its weights.
+  Outside the band, `07` proposes a fix: re-weight the floor, then if needed shift
+  up to 2 points of probability between the 0.70–1.00x and 1.00–1.25x bands. The
+  guardrails (`HOUSE_MARGIN_*`, `MIN/MAX_WIN_RATE`, `MAX_DRIFT_PER_BAND`) are in `00`.
+  When they stop it short, the proposal says "capped". The lasting fix is then
+  cheaper bottles in the cells `04` marks `HIGH`.
+- **Realized margin**: from `app.rips` over 24h/7d/30d. Below 15% it **only
+  notifies**, with a z-score saying whether luck explains it. It never changes
+  odds because players won.
+- **Approval**: `/admin/odds` in the app shows the proposal, an AI-written
+  explanation (the model explains; every number is computed by the guard), and
+  Approve/Reject. Approve starts `08`, which writes the curve to
+  `app.odds_curve_versions`, re-weights via `04`, and POSTs the weighted sync hook.
+- **Approved curves stick**: `00` loads active rows from `app.odds_curve_versions`,
+  so `02`/`03`/`04` weight with the approved curve rather than reverting it.
+
+### Jobs to create
+| Job | Notebook | Schedule | Parameters |
+|---|---|---|---|
+| `celr-margin-guard` | `07_margin_guard.py` | hourly | `dry_run=false`, `app_base_url` |
+| `celr-apply-odds` | `08_apply_odds_proposal.py` | every 15 min, max 1 concurrent run | `dry_run=false`, `app_base_url` |
+
+Put the recipients on each job's **on failure** notification. Both jobs fail on
+purpose when there's something to tell you, like `05_inventory_reorder_alert.py`. Set the apply job's id as
+`DATABRICKS_ODDS_APPLY_JOB_ID` in the app's environment, so Approve starts it
+immediately instead of waiting for the next 15-minute run.
 
 ## Scheduling
 

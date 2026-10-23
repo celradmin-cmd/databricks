@@ -209,7 +209,8 @@ for r in _valued:
     _cells.setdefault((int(r["tier"]), int(r["band_idx"])), []).append(r)
 _weight_rows = []
 for (t, b), rows in _cells.items():
-    for r, w in zip(rows, cell_weights(b, [r["retail_value"] / TIER_PRICE[t] for r in rows])):
+    for r, w in zip(rows, cell_weights(b, [r["retail_value"] / TIER_PRICE[t] for r in rows],
+                                       prob=target_prob(b, t, "bourbon"))):
         _weight_rows.append((r["bottle_serial"], int(r["slot_idx"]), w))
 _weights = spark.createDataFrame(_weight_rows, "bottle_serial string, slot_idx int, weight int")
 
@@ -256,7 +257,7 @@ for t, b in missing_cells:
     price = TIER_PRICE[t]
     label = f"[TIER{t} BAND{b + 1} PLACEHOLDER - ADD {band_label(t, b)} BOTTLE]"
     mid_value = round((lo + hi) / 2 * price) if hi != float("inf") else round(lo * price * 1.5)
-    w = weight_for_band(b, 1)
+    w = weight_for_band(b, 1, t, "bourbon")
     placeholder_rows.append((
         # Deterministic uuid5 rather than "ph-1-2": the Supabase column is `uuid`,
         # so a non-uuid literal fails the sync insert. Deterministic so the same
@@ -335,7 +336,7 @@ for t in TIERS:
     for b in BANDS:
         w, n = band_totals.get((t, b), (0, 0))
         pct = (w / tier_totals[t] * 100) if tier_totals[t] else 0
-        target = TARGET_PROBS[b] * 100
+        target = target_prob(b, t, "bourbon") * 100   # approved margin-guard curve, if any
         flag = "OK" if abs(pct - target) < 0.05 else "!!"
         if flag == "!!":
             ok_all = False
