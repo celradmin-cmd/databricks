@@ -272,6 +272,11 @@ class ImageResolver:
                         continue   # logos/icons and tracking pixels, never a bottle photo
                     fname = re.sub(r"\.(png|jpe?g|webp|gif|avif)$", "", path.rsplit("/", 1)[-1], flags=re.I)
                     fname = re.sub(r"[-_]\d+x\d+$", "", fname)   # WordPress thumbnail suffix
+                    if urlparse(full).netloc == "static.wixstatic.com" and "/v1/" in full:
+                        # Wix serves a resized AVIF ("/v1/fill/w_..,enc_avif/1953.png") that the
+                        # app can't read; the part before /v1/ is the original upload. Match on
+                        # the readable name above, keep the original's URL.
+                        full = full.split("/v1/", 1)[0]
                     cands.append({"label": f"{alt} {title} {fname.replace('_', ' ').replace('-', ' ')}",
                                   "image_url": full, "page_url": url, "in_gallery": in_gallery})
                 result = (cands, urljoin(r.url, p.og) if p.og else None)
